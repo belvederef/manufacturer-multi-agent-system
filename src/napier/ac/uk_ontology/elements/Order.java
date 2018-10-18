@@ -38,5 +38,10 @@ public class Order implements Concept {
     this.dueInDays = dueInDays;
   }
   
-
+  @Override
+  public String toString() {
+    String compString = computer.toString();
+    return String.format("(\n computer: %s, \n quantity: %s, \n price: %s, \n dueInDays: %s)",
+        compString, quantity, price, dueInDays);
+  }
 }

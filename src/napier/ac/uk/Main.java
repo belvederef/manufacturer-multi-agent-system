@@ -28,12 +28,7 @@ public class Main {
             CustomerAgent.class.getCanonicalName(), null);
         customer.start();
       }
-      
-      AgentController manufactAgent = myContainer.createNewAgent("manufacturer", 
-          ManufactAgent.class.getCanonicalName(), null);
-      manufactAgent.start();
-	      
-			
+      	      
 			// Create the three suppliers
       AgentController supplierSlow = myContainer.createNewAgent("supplierSlow", 
           SupplierSlowAgent.class.getCanonicalName(), null);
@@ -44,11 +39,16 @@ public class Main {
       supplierSlow.start();
       supplierMed.start();
       supplierFast.start();
+      
+      
+      AgentController manufactAgent = myContainer.createNewAgent("manufacturer", 
+          ManufactAgent.class.getCanonicalName(), null);
+      manufactAgent.start();
 			
 			
       // Create the ticker agent that defines working days
 			AgentController tickerAgent = myContainer.createNewAgent("ticker", 
-			    BuyerSellerTicker.class.getCanonicalName(), null);
+			    Ticker.class.getCanonicalName(), null);
 			tickerAgent.start();
 			
 		}

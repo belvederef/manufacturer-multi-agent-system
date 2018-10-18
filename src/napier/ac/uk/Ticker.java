@@ -15,7 +15,7 @@ import jade.domain.FIPAAgentManagement.ServiceDescription;
 import jade.lang.acl.ACLMessage;
 import jade.lang.acl.MessageTemplate;
 
-public class BuyerSellerTicker extends Agent {
+public class Ticker extends Agent {
 	public static final int NUM_DAYS = 30;
 	@Override
 	protected void setup() {
@@ -69,12 +69,16 @@ public class BuyerSellerTicker extends Agent {
 				//find all agents using directory service
 				DFAgentDescription template1 = new DFAgentDescription();
 				ServiceDescription sd = new ServiceDescription();
-				sd.setType("buyer");
+				sd.setType("customer");
 				template1.addServices(sd);
 				DFAgentDescription template2 = new DFAgentDescription();
 				ServiceDescription sd2 = new ServiceDescription();
-				sd2.setType("seller");
+				sd2.setType("supplier");
 				template2.addServices(sd2);
+        DFAgentDescription template3 = new DFAgentDescription();
+        ServiceDescription sd3 = new ServiceDescription();
+        sd3.setType("manufacturer");
+        template3.addServices(sd3);
 				try{
 					DFAgentDescription[] agentsType1  = DFService.search(myAgent,template1); 
 					for(int i=0; i<agentsType1.length; i++){
@@ -84,6 +88,10 @@ public class BuyerSellerTicker extends Agent {
 					for(int i=0; i<agentsType2.length; i++){
 						simulationAgents.add(agentsType2[i].getName()); // this is the AID
 					}
+	         DFAgentDescription[] agentsType3  = DFService.search(myAgent,template3); 
+	          for(int i=0; i<agentsType3.length; i++){
+	            simulationAgents.add(agentsType3[i].getName()); // this is the AID
+	          }
 				}
 				catch(FIPAException e) {
 					e.printStackTrace();

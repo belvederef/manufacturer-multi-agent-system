@@ -1,7 +1,6 @@
 package napier.ac.uk;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.Random;
 
 import jade.content.lang.Codec;
@@ -24,20 +23,15 @@ import jade.lang.acl.MessageTemplate;
 import napier.ac.uk_ontology.ShopOntology;
 import napier.ac.uk_ontology.elements.CanManufacture;
 import napier.ac.uk_ontology.elements.Computer;
-import napier.ac.uk_ontology.elements.Desktop;
-import napier.ac.uk_ontology.elements.Laptop;
 import napier.ac.uk_ontology.elements.Order;
-import set10111.music_shop_ontology.ECommerceOntology;
-import set10111.music_shop_ontology.elements.CD;
-import set10111.music_shop_ontology.elements.Owns;
 
 public class CustomerAgent extends Agent {
   private Codec codec = new SLCodec();
   private Ontology ontology = ShopOntology.getInstance();
   
   private ArrayList<AID> manufacturers = new ArrayList<>();
-  private ArrayList<Order> currentOrders = new ArrayList<>();
-  private Order order;
+  private ArrayList<Order> currentOrders = new ArrayList<>(); // The orders that the agent has made so far
+  private Order order; // The order for today
   private AID tickerAgent;
   private int numQueriesSent;
   @Override
@@ -98,7 +92,7 @@ public class CustomerAgent extends Agent {
           dailyActivity.addSubBehaviour(new CreateOrder(myAgent));
           dailyActivity.addSubBehaviour(new FindManufacturers(myAgent));
           dailyActivity.addSubBehaviour(new AskOrder(myAgent));
-          dailyActivity.addSubBehaviour(new CollectOffers(myAgent));
+//          dailyActivity.addSubBehaviour(new CollectOrders(myAgent));
           dailyActivity.addSubBehaviour(new EndDay(myAgent));
           myAgent.addBehaviour(dailyActivity);
         }
@@ -156,7 +150,7 @@ public class CustomerAgent extends Agent {
       
       order = new Order();
       order.setComputer(computer);
-      int quantity = (int) Math.floor(1 + 50 + rand.nextFloat());
+      int quantity = (int) Math.floor(1 + 50 * rand.nextFloat());
       order.setQuantity(quantity);
       order.setPrice(quantity * (int) Math.floor(600 + 200 * rand.nextFloat()));
       order.setDueInDays((int) Math.floor(1 + 10 * rand.nextFloat()));
@@ -241,74 +235,72 @@ public class CustomerAgent extends Agent {
     }
   }
 
-  public class CollectOffers extends Behaviour {
-    private int numRepliesReceived = 0;
-    
-    public CollectOffers(Agent a) {
-      super(a);
-      currentOrders.clear();
-    }
-
-    
-    @Override
-    public void action() {
-      boolean received = false;
-      for(String bookTitle : booksToBuy) {
-        MessageTemplate mt = MessageTemplate.MatchConversationId(bookTitle);
-        ACLMessage msg = myAgent.receive(mt);
-        if(msg != null) {
-          received = true;
-          numRepliesReceived++;
-          if(msg.getPerformative() == ACLMessage.PROPOSE) {
-            //we have an offer
-            //the first offer for a book today
-            if(!currentOrders.containsKey(bookTitle)) {
-              ArrayList<Order> orders = new ArrayList<>();
-              orders.add(new Order(msg.getSender(),
-                  Integer.parseInt(msg.getContent())));
-              currentOrders.put(bookTitle, orders);
-            }
-            //subsequent offers
-            else {
-              ArrayList<Order> orders = currentOrders.get(bookTitle);
-              orders.add(new Order(msg.getSender(),
-                  Integer.parseInt(msg.getContent())));
-            }
-              
-          }
-
-        }
-      }
-      if(!received) {
-        block();
-      }
-    }
-
-    
-
-    @Override
-    public boolean done() {
-      return numRepliesReceived == numQueriesSent;
-    }
-
-    @Override
-    public int onEnd() {
-      //print the offers
-      for(String book : booksToBuy) {
-        if(currentOrders.containsKey(book)) {
-          ArrayList<Order> orders = currentOrders.get(book);
-          for(Offer o : orders) {
-            System.out.println(book + "," + o.getManufacturer().getLocalName() + "," + o.getPrice());
-          }
-        }
-        else {
-          System.out.println("No offers for " + book);
-        }
-      }
-      return 0;
-    }
-
-  }
+//  public class CollectOrders extends Behaviour {
+//    private int numRepliesReceived = 0;
+//    
+//    public CollectOrders(Agent a) {
+//      super(a);
+//      currentOrders.clear();
+//    }
+//
+//    
+//    @Override
+//    public void action() {
+//      boolean received = false;
+//      MessageTemplate mt = MessageTemplate.MatchConversationId(bookTitle);
+//      ACLMessage msg = myAgent.receive(mt);
+//      if(msg != null) {
+//        received = true;
+//        numRepliesReceived++;
+//        if(msg.getPerformative() == ACLMessage.PROPOSE) {
+//          //we have an offer
+//          //the first offer for a book today
+//          if(!currentOrders.containsKey(bookTitle)) {
+//            ArrayList<Order> orders = new ArrayList<>();
+//            orders.add(new Order(msg.getSender(),
+//                Integer.parseInt(msg.getContent())));
+//            currentOrders.put(bookTitle, orders);
+//          }
+//          //subsequent offers
+//          else {
+//            ArrayList<Order> orders = currentOrders.get(bookTitle);
+//            orders.add(new Order(msg.getSender(),
+//                Integer.parseInt(msg.getContent())));
+//          }
+//            
+//        }
+//
+//        }
+//      if(!received) {
+//        block();
+//      }
+//    }
+//
+//    
+//
+//    @Override
+//    public boolean done() {
+//      return numRepliesReceived == numQueriesSent;
+//    }
+//
+//    @Override
+//    public int onEnd() {
+//      //print the offers
+//      for(String book : booksToBuy) {
+//        if(currentOrders.containsKey(book)) {
+//          ArrayList<Order> orders = currentOrders.get(book);
+//          for(Offer o : orders) {
+//            System.out.println(book + "," + o.getManufacturer().getLocalName() + "," + o.getPrice());
+//          }
+//        }
+//        else {
+//          System.out.println("No offers for " + book);
+//        }
+//      }
+//      return 0;
+//    }
+//
+//  }
   
   
   
@@ -324,7 +316,7 @@ public class CustomerAgent extends Agent {
       msg.addReceiver(tickerAgent);
       msg.setContent("done");
       myAgent.send(msg);
-      //send a message to each manufacturer that we have finished
+      //send a message to each manufacturer informing that we have finished ordering for today
       ACLMessage manufacturerDone = new ACLMessage(ACLMessage.INFORM);
       manufacturerDone.setContent("done");
       for(AID manufacturer : manufacturers) {

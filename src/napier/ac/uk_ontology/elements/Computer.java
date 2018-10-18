@@ -56,4 +56,16 @@ public class Computer implements Concept {
   public void setOs(String os) {
     this.os = os;
   }
+  
+  @Override
+  public String toString() {
+    return String.format("(\n\t"
+        + "cpu: %s, \n\t"
+        + "motherboard: %s, \n\t"
+        + "screen: %s, \n\t"
+        + "ram: %s, \n\t"
+        + "hardDrive: %s, \n\t"
+        + "os: %s, \n\t)",
+        cpu, motherboard, screen, ram, hardDrive, os);
+  }
 }
