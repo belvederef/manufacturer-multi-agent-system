@@ -8,6 +8,7 @@ import jade.content.lang.Codec.CodecException;
 import jade.content.lang.sl.SLCodec;
 import jade.content.onto.Ontology;
 import jade.content.onto.OntologyException;
+import jade.content.onto.basic.Action;
 import jade.core.AID;
 import jade.core.Agent;
 import jade.core.behaviours.Behaviour;
@@ -217,6 +218,11 @@ public class CustomerAgent extends Agent {
         CanManufacture canManufacture = new CanManufacture();
         canManufacture.setManufacturer(manufacturer);
         canManufacture.setOrder(order);
+        
+        //IMPORTANT: According to FIPA, we need to create a wrapper Action object
+//        Action request = new Action();
+//        request.setAction(order);
+//        request.setActor(sellerAID); // the agent that you request to perform the action
         
         try {
           // Let JADE convert from Java objects to string

@@ -26,16 +26,19 @@ import napier.ac.uk_ontology.elements.CanManufacture;
 import napier.ac.uk_ontology.elements.Computer;
 import napier.ac.uk_ontology.elements.Order;
 
+// A manufacturer is both a buyer and a seller
 public class ManufactAgent extends Agent {
   private Codec codec = new SLCodec();
   private Ontology ontology = ShopOntology.getInstance();
   
   private ArrayList<AID> suppliers = new ArrayList<>();
   private ArrayList<AID> customers = new ArrayList<>();
-  private ArrayList<String>  booksToBuy = new ArrayList<>();
+  
+  private ArrayList<String> componentsToBuy = new ArrayList<>(); // components to buy for a order
   private HashMap<String,ArrayList<Order>> currentOrders = new HashMap<>();
   private HashMap<AID,ArrayList<Order>> allOrders = new HashMap<>(); // List of the computers and the agents that they are for
   private HashMap<AID,ArrayList<Computer>> computersAvailable = new HashMap<>(); // List of completed computers
+  
   private AID tickerAgent;
   private int numQueriesSent;
   
@@ -96,6 +99,7 @@ public class ManufactAgent extends Agent {
           //sub-behaviours will execute in the order they are added
           dailyActivity.addSubBehaviour(new FindSuppliers(myAgent));
           dailyActivity.addSubBehaviour(new FindCustomers(myAgent));
+          dailyActivity.addSubBehaviour(new OrderReplyBehaviour(myAgent));
 //          dailyActivity.addSubBehaviour(new CollectOrders(myAgent));
 //          dailyActivity.addSubBehaviour(new SendEnquiries(myAgent));
 //          dailyActivity.addSubBehaviour(new CollectOffers(myAgent));
@@ -113,9 +117,66 @@ public class ManufactAgent extends Agent {
     }
 
   }
+
+  public class FindSuppliers extends OneShotBehaviour {
+
+    public FindSuppliers(Agent a) {
+      super(a);
+    }
+
+    @Override
+    public void action() {
+      DFAgentDescription supplierTemplate = new DFAgentDescription();
+      ServiceDescription sd = new ServiceDescription();
+      sd.setType("supplier");
+      supplierTemplate.addServices(sd);
+      try{
+        suppliers.clear();
+        DFAgentDescription[] agentsType = DFService.search(myAgent,supplierTemplate); 
+        for(int i=0; i<agentsType.length; i++){
+          suppliers.add(agentsType[i].getName()); // this is the AID
+//          System.out.println("found supplier " + agentsType[i].getName());
+        }
+      }
+      catch(FIPAException e) {
+        e.printStackTrace();
+      }
+    }
+  }
+  
+  public class FindCustomers extends OneShotBehaviour {
+
+    public FindCustomers(Agent a) {
+      super(a);
+    }
+
+    @Override
+    public void action() {
+      DFAgentDescription customerTemplate = new DFAgentDescription();
+      ServiceDescription sd = new ServiceDescription();
+      sd.setType("customer");
+      customerTemplate.addServices(sd);
+      try{
+        customers.clear();
+        DFAgentDescription[] agentsType  = DFService.search(myAgent,customerTemplate); 
+        for(int i=0; i<agentsType.length; i++){
+          customers.add(agentsType[i].getName()); // this is the AID
+//          System.out.println("found customer " + agentsType[i].getName());
+        }
+      }
+      catch(FIPAException e) {
+        e.printStackTrace();
+      }
+
+    }
+  }
   
   private class OrderReplyBehaviour extends CyclicBehaviour{
     // This behaviour accepts or decline an order offer
+    public OrderReplyBehaviour(Agent a) {
+      super(a);
+    }
+    
     @Override
     public void action() {
       //This behaviour should only respond to QUERY_IF messages
@@ -129,12 +190,14 @@ public class ManufactAgent extends Agent {
           // Let JADE convert from String to Java objects
           // Output will be a ContentElement
           ce = getContentManager().extractContent(msg);
+          System.out.println(ce);
+          
           if (ce instanceof CanManufacture) {
             CanManufacture canManifacture = (CanManufacture) ce;
             Order order = canManifacture.getOrder();
-            // Extract the CD name and print it to demonstrate use of the ontology
+            // Extract the computer specs and print them to demonstrate use of the ontology
             Computer computer = (Computer) order.getComputer();
-            System.out.println("The computer is " + computer);
+//            System.out.println("The computer ordered is " + computer.toString());
             
             //check if seller has it in stock
 //            if(itemsForSale.containsKey(cd.getSerialNumber())) {
@@ -159,62 +222,6 @@ public class ManufactAgent extends Agent {
       }
     }
     
-  }
-  
-
-  public class FindSuppliers extends OneShotBehaviour {
-
-    public FindSuppliers(Agent a) {
-      super(a);
-    }
-
-    @Override
-    public void action() {
-      DFAgentDescription supplierTemplate = new DFAgentDescription();
-      ServiceDescription sd = new ServiceDescription();
-      sd.setType("supplier");
-      supplierTemplate.addServices(sd);
-      try{
-        suppliers.clear();
-        DFAgentDescription[] agentsType = DFService.search(myAgent,supplierTemplate); 
-        for(int i=0; i<agentsType.length; i++){
-          suppliers.add(agentsType[i].getName()); // this is the AID
-          System.out.println("found supplier " + agentsType[i].getName());
-        }
-      }
-      catch(FIPAException e) {
-        e.printStackTrace();
-      }
-
-    }
-
-  }
-  
-  public class FindCustomers extends OneShotBehaviour {
-
-    public FindCustomers(Agent a) {
-      super(a);
-    }
-
-    @Override
-    public void action() {
-      DFAgentDescription customerTemplate = new DFAgentDescription();
-      ServiceDescription sd = new ServiceDescription();
-      sd.setType("customer");
-      customerTemplate.addServices(sd);
-      try{
-        customers.clear();
-        DFAgentDescription[] agentsType  = DFService.search(myAgent,customerTemplate); 
-        for(int i=0; i<agentsType.length; i++){
-          customers.add(agentsType[i].getName()); // this is the AID
-          System.out.println("found customer " + agentsType[i].getName());
-        }
-      }
-      catch(FIPAException e) {
-        e.printStackTrace();
-      }
-
-    }
   }
   
 //  public class CollectOrders extends Behaviour {
@@ -284,6 +291,7 @@ public class ManufactAgent extends Agent {
 //    }
 //
 //  }
+  
   
 //
 //  public class SendEnquiries extends OneShotBehaviour {

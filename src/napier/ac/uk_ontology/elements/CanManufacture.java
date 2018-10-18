@@ -1,10 +1,10 @@
 package napier.ac.uk_ontology.elements;
 
-import jade.content.AgentAction;
+import jade.content.Predicate;
 import jade.core.AID;
 
 // Action. The customer asks the manufacturer if they can accept this order
-public class CanManufacture implements AgentAction {
+public class CanManufacture implements Predicate {
   private AID manufacturer;
   private Order order;
   
