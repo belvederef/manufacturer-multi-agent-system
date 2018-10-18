@@ -20,5 +20,4 @@ public class Desktop extends Computer {
   public void setDeskMotherboard(String deskMotherboard) {
     this.deskMotherboard = deskMotherboard;
   }
-
 }
