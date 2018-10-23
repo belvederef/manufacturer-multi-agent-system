@@ -3,6 +3,12 @@ package napier.ac.uk_ontology.elements;
 import jade.content.Concept;
 import jade.content.onto.annotations.Slot;
 
+//Concepts i.e. expressions that indicate entities with a complex structure that can be defined in
+//terms of slots e.g. (Person :name John :age 33)
+//Concepts typically make no sense if used directly as the content of an ACL message. I general they
+//are referenced inside predicates and other concepts such as in
+//(Book :title “The Lord of the rings” :author (Person :name “J.R.R. Tolkjien”)) 
+
 //TODO: make ther computer only have enums for ram, hardDrive and OS
 public class Computer implements Concept {
   private String cpu;
