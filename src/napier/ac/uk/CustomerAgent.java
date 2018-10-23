@@ -106,7 +106,7 @@ public class CustomerAgent extends Agent {
           dailyActivity.addSubBehaviour(new CreateOrder(myAgent));
           dailyActivity.addSubBehaviour(new FindManufacturers(myAgent));
           dailyActivity.addSubBehaviour(new AskOrder(myAgent));
-//          dailyActivity.addSubBehaviour(new CollectOrders(myAgent));
+          dailyActivity.addSubBehaviour(new CollectOrders(myAgent));
           dailyActivity.addSubBehaviour(new EndDay(myAgent));
           
           myAgent.addBehaviour(dailyActivity);
@@ -272,57 +272,64 @@ public class CustomerAgent extends Agent {
     }
   }
 
-//  public class CollectOrders extends Behaviour {
-//    private int numRepliesReceived = 0;
-//    
-//    public CollectOrders(Agent a) {
-//      super(a);
-//      currentOrders.clear();
-//    }
-//
-//    
-//    @Override
-//    public void action() {
-//      boolean received = false;
-//      MessageTemplate mt = MessageTemplate.MatchConversationId(bookTitle);
-//      ACLMessage msg = myAgent.receive(mt);
-//      if(msg != null) {
-//        received = true;
-//        numRepliesReceived++;
-//        if(msg.getPerformative() == ACLMessage.PROPOSE) {
-//          //we have an offer
-//          //the first offer for a book today
+  public class CollectOrders extends Behaviour {
+    private int numRepliesReceived = 0;
+    
+    public CollectOrders(Agent a) {
+      super(a);
+      currentOrders.clear();
+    }
+
+    
+    @Override
+    public void action() {
+      boolean received = false;
+      
+      CanManufacture canManufacture = new CanManufacture();
+      
+      // TODO: probably better to match on manufacturer AID
+	  MessageTemplate mt = MessageTemplate.or(MessageTemplate.MatchPerformative(ACLMessage.CONFIRM),
+			MessageTemplate.MatchPerformative(ACLMessage.DISCONFIRM));
+      
+      ACLMessage msg = myAgent.receive(mt);
+      if(msg != null) {
+        received = true;
+        numRepliesReceived++;
+        if(msg.getPerformative() == ACLMessage.CONFIRM) {
+          // The order was accepted
+          System.out.println("Offer accepted! YAY");
+          
 //          if(!currentOrders.containsKey(bookTitle)) {
 //            ArrayList<Order> orders = new ArrayList<>();
 //            orders.add(new Order(msg.getSender(),
 //                Integer.parseInt(msg.getContent())));
 //            currentOrders.put(bookTitle, orders);
 //          }
-//          //subsequent offers
+          //subsequent offers
 //          else {
 //            ArrayList<Order> orders = currentOrders.get(bookTitle);
 //            orders.add(new Order(msg.getSender(),
 //                Integer.parseInt(msg.getContent())));
 //          }
-//            
-//        }
-//
-//        }
-//      if(!received) {
-//        block();
-//      }
-//    }
-//
-//    
-//
-//    @Override
-//    public boolean done() {
-//      return numRepliesReceived == numQueriesSent;
-//    }
-//
-//    @Override
-//    public int onEnd() {
-//      //print the offers
+            
+        }
+
+        }
+      if(!received) {
+        block();
+      }
+    }
+
+    
+
+    @Override
+    public boolean done() {
+      return numRepliesReceived == numQueriesSent;
+    }
+
+    @Override
+    public int onEnd() {
+      //print the offers
 //      for(String book : booksToBuy) {
 //        if(currentOrders.containsKey(book)) {
 //          ArrayList<Order> orders = currentOrders.get(book);
@@ -334,10 +341,10 @@ public class CustomerAgent extends Agent {
 //          System.out.println("No offers for " + book);
 //        }
 //      }
-//      return 0;
-//    }
-//
-//  }
+      return 0;
+    }
+
+  }
   
   
   

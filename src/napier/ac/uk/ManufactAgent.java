@@ -94,9 +94,10 @@ public class ManufactAgent extends Agent {
           tickerAgent = msg.getSender();
         }
         if(msg.getContent().equals("new day")) {
-          //spawn new sequential behaviour for day's activities
+          // Spawn a new sequential behaviour for the day's activities
           SequentialBehaviour dailyActivity = new SequentialBehaviour();
-          //sub-behaviours will execute in the order they are added
+          
+          // Sub-behaviours will execute in the order they are added
           dailyActivity.addSubBehaviour(new FindSuppliers(myAgent));
           dailyActivity.addSubBehaviour(new FindCustomers(myAgent));
           dailyActivity.addSubBehaviour(new OrderReplyBehaviour(myAgent));
@@ -185,27 +186,44 @@ public class ManufactAgent extends Agent {
       if(msg != null){
         try {
           ContentElement ce = null;
-          System.out.println(msg.getContent()); //print out the message content in SL
+          
+          // Print out the message content in SL
+          System.out.println("\nMessage received by manufacturer from client" + msg.getContent()); 
 
           // Let JADE convert from String to Java objects
           // Output will be a ContentElement
           ce = getContentManager().extractContent(msg);
-          System.out.println(ce);
-          
           if (ce instanceof CanManufacture) {
             CanManufacture canManifacture = (CanManufacture) ce;
             Order order = canManifacture.getOrder();
-            // Extract the computer specs and print them to demonstrate use of the ontology
             Computer computer = (Computer) order.getComputer();
-//            System.out.println("The computer ordered is " + computer.toString());
             
-            //check if seller has it in stock
+            // Extract the computer specs and print them to demonstrate use of the ontology
+            System.out.println("The computer ordered is " + computer.toString());
+            
+            
+            //check if supplier has the components in stock
 //            if(itemsForSale.containsKey(cd.getSerialNumber())) {
-//              System.out.println("I have the CD in stock!");
+            	// If all the components can be purchased, accept the order
+//              System.out.println("Order accepted!");
 //            }
 //            else {
-//              System.out.println("CD out of stock");
+//              System.out.println("Order declined");
 //            }
+            
+            // Accept all orders just for development
+			ACLMessage reply = msg.createReply();
+			if(true) { // TODO: build logic for accepting. e.g. if the supplier has the components in stock
+				// We can accept an order
+				reply.setPerformative(ACLMessage.CONFIRM);
+				reply.setContent("Accepted");
+				
+				System.out.println("\nSending response to the customer. We accept.");
+			}
+			else {
+				reply.setPerformative(ACLMessage.DISCONFIRM);
+			}
+			myAgent.send(reply); // send reply to customer
           }
         }
 

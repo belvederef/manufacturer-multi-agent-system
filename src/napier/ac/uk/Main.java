@@ -21,7 +21,7 @@ public class Main {
 //			simulationAgent.start();
 			
 			// Customers of the systems. Shops that make orders for a number of computers 
-	    int numCustomers = 3;
+	  int numCustomers = 3;
       AgentController customer;
       for(int i=0; i<numCustomers; i++) {
         customer = myContainer.createNewAgent("customer" + i, 
