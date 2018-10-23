@@ -24,7 +24,19 @@ import jade.lang.acl.MessageTemplate;
 import napier.ac.uk_ontology.ShopOntology;
 import napier.ac.uk_ontology.elements.CanManufacture;
 import napier.ac.uk_ontology.elements.Computer;
+import napier.ac.uk_ontology.elements.Desktop;
+import napier.ac.uk_ontology.elements.Laptop;
 import napier.ac.uk_ontology.elements.Order;
+import napier.ac.uk_ontology.elements.computerComponents.CpuDesktop;
+import napier.ac.uk_ontology.elements.computerComponents.CpuLaptop;
+import napier.ac.uk_ontology.elements.computerComponents.HardDrive;
+import napier.ac.uk_ontology.elements.computerComponents.MotherboardDesktop;
+import napier.ac.uk_ontology.elements.computerComponents.MotherboardLaptop;
+import napier.ac.uk_ontology.elements.computerComponents.Os;
+import napier.ac.uk_ontology.elements.computerComponents.OsLinux;
+import napier.ac.uk_ontology.elements.computerComponents.OsWindows;
+import napier.ac.uk_ontology.elements.computerComponents.Ram;
+import napier.ac.uk_ontology.elements.computerComponents.Screen;
 
 public class CustomerAgent extends Agent {
   private Codec codec = new SLCodec();
@@ -41,7 +53,7 @@ public class CustomerAgent extends Agent {
     getContentManager().registerLanguage(codec);
     getContentManager().registerOntology(ontology);
     
-    //add this agent to the yellow pages
+    // Add this agent to the yellow pages
     DFAgentDescription dfd = new DFAgentDescription();
     dfd.setName(getAID());
     ServiceDescription sd = new ServiceDescription();
@@ -61,7 +73,7 @@ public class CustomerAgent extends Agent {
 
   @Override
   protected void takeDown() {
-    //Deregister from the yellow pages
+    // Deregister from the yellow pages
     try{
       DFService.deregister(this);
     }
@@ -72,7 +84,7 @@ public class CustomerAgent extends Agent {
 
   public class TickerWaiter extends CyclicBehaviour {
 
-    //behaviour to wait for a new day
+    // Behaviour to wait for a new day
     public TickerWaiter(Agent a) {
       super(a);
     }
@@ -87,18 +99,20 @@ public class CustomerAgent extends Agent {
           tickerAgent = msg.getSender();
         }
         if(msg.getContent().equals("new day")) {
-          //spawn new sequential behaviour for day's activities
+          // Spawn a new sequential behaviour for the day's activities
           SequentialBehaviour dailyActivity = new SequentialBehaviour();
-          //sub-behaviours will execute in the order they are added
+          
+          // Sub-behaviours will execute in the order they are added
           dailyActivity.addSubBehaviour(new CreateOrder(myAgent));
           dailyActivity.addSubBehaviour(new FindManufacturers(myAgent));
           dailyActivity.addSubBehaviour(new AskOrder(myAgent));
 //          dailyActivity.addSubBehaviour(new CollectOrders(myAgent));
           dailyActivity.addSubBehaviour(new EndDay(myAgent));
+          
           myAgent.addBehaviour(dailyActivity);
         }
         else {
-          //termination message to end simulation
+          // Termination message to end simulation
           myAgent.doDelete();
         }
       }
@@ -120,34 +134,49 @@ public class CustomerAgent extends Agent {
       // Add a new order for each day. Prepare the content. 
       
       Random rand = new Random();
-      Computer computer = new Computer();
-      // Add computer
+//      Computer computer = new Computer();
+      
+      // Declare variable parts
+      Computer computer;
+      Ram ram;
+      HardDrive hardDrive;
+      Os os;
+      
+      // Randomly generate components
       if(rand.nextFloat() < 0.5) {
-        // Desktop
-        computer.setCpu("desktopCPU");
-        computer.setMotherboard("desktopMotherboard");
-        computer.setScreen(false);
+    	computer = new Desktop();
+//    	CpuDesktop cpu = new CpuDesktop();
+//    	MotherboardDesktop motherboard = new MotherboardDesktop();
+//    	Screen screen = new Screen();
+    	
       } else {
-        // Laptop
-        computer.setCpu("laptopCPU");
-        computer.setMotherboard("laptopMotherboard");
-        computer.setScreen(true);
+    	computer = new Laptop();
+//    	CpuLaptop cpu = new CpuLaptop();
+//    	MotherboardLaptop motherboard = new MotherboardLaptop();
+//    	Screen screen = new Screen();
+    	
       }
       if(rand.nextFloat() < 0.5) {
-        computer.setRam("8GB"); 
+    	ram = new Ram("8GB"); 
       } else {
-        computer.setRam("16GB");
+    	ram = new Ram("16GB");
       }
       if(rand.nextFloat() < 0.5) {
-        computer.setHardDrive("1TB");
+    	hardDrive = new HardDrive("1TB");
       } else {
-        computer.setHardDrive("2TB");
+        hardDrive = new HardDrive("2TB");
       }
       if(rand.nextFloat() < 0.5) {
-        computer.setOs("Windows");
+    	os = new OsWindows();
       } else {
-        computer.setOs("Linux");
+    	os = new OsLinux();
       }
+      
+      // Add randomly generated components
+      computer.setRam(ram);
+      computer.setHardDrive(hardDrive);
+      computer.setOs(os);
+      
       
       order = new Order();
       order.setComputer(computer);
@@ -156,9 +185,7 @@ public class CustomerAgent extends Agent {
       order.setPrice(quantity * (int) Math.floor(600 + 200 * rand.nextFloat()));
       order.setDueInDays((int) Math.floor(1 + 10 * rand.nextFloat()));
       
-      System.out.print("New customer agent order is: ");
-      System.out.println(order);
-     
+      System.out.println("\n New customer agent order is: " + order);
     }
   }
   
@@ -176,10 +203,10 @@ public class CustomerAgent extends Agent {
       sd.setType("manufacturer");
       manufacturerTemplate.addServices(sd);
       try{
-        manufacturers.clear();
-        DFAgentDescription[] agentsType  = DFService.search(myAgent,manufacturerTemplate); 
+        manufacturers.clear();  // Refresh the manufacturer list everyday
+        DFAgentDescription[] agentsType  = DFService.search(myAgent, manufacturerTemplate); 
         for(int i=0; i<agentsType.length; i++){
-          manufacturers.add(agentsType[i].getName()); // this is the AID
+          manufacturers.add(agentsType[i].getName()); // Add the AID to the list of manufacturers
         }
       }
       catch(FIPAException e) {
@@ -199,7 +226,7 @@ public class CustomerAgent extends Agent {
     @Override
     public void action() {
       numQueriesSent = 0;
-      // Prepare the Query-IF message. Asks the manufacturer to if they will accept order
+      // Prepare the Query-IF message. Asks the manufacturer to if they will accept the order
       ACLMessage msg = new ACLMessage(ACLMessage.QUERY_IF);
       msg.setLanguage(codec.getName());
       msg.setOntology(ontology.getName()); 
