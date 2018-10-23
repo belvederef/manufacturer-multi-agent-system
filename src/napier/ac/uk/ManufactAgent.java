@@ -223,7 +223,7 @@ public class ManufactAgent extends Agent {
 			else {
 				reply.setPerformative(ACLMessage.DISCONFIRM);
 			}
-			myAgent.send(reply); // send reply to customer
+			myAgent.send(reply);
           }
         }
 
