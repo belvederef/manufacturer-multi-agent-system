@@ -1,5 +1,7 @@
 package napier.ac.uk_ontology.elements.computerComponents;
 
-public class Cpu {
+import jade.content.Concept;
+
+public class Cpu implements Concept{
 
 }

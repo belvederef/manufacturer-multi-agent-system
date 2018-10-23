@@ -31,7 +31,7 @@ public class Desktop extends Computer {
   @Override
   public String toString() {
     return super.toString() + 
-		String.format("(\n\t"
+		String.format("\n\t"
 	        + "cpu: %s, \n\t"
 	        + "motherboard: %s, \n\t)",
 	        deskCpu, deskMotherboard);

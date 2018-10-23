@@ -41,7 +41,7 @@ public class Laptop extends Computer {
   @Override
   public String toString() {
     return super.toString() + 
-		String.format("(\n\t"
+		String.format("\n\t"
 	        + "cpu: %s, \n\t"
 	        + "motherboard: %s, \n\t"
 	        + "screen: %s, \n\t)",

@@ -1,5 +1,7 @@
 package napier.ac.uk_ontology.elements.computerComponents;
 
-public class Os {
+import jade.content.Concept;
+
+public class Os implements Concept {
 
 }

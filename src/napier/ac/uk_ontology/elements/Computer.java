@@ -45,7 +45,7 @@ public class Computer implements Concept {
     return String.format("(\n\t"
         + "ram: %s, \n\t"
         + "hardDrive: %s, \n\t"
-        + "os: %s, \n\t)",
+        + "os: %s,",
         ram, hardDrive, os);
   }
 }

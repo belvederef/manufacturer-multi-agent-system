@@ -1,13 +1,10 @@
 package napier.ac.uk_ontology.elements.computerComponents;
 
+import jade.content.Concept;
 import jade.content.onto.annotations.Slot;
 
-public class HardDrive {
+public class HardDrive implements Concept {
 	private String capacity;
-	
-	public HardDrive(String capacity) {
-		this.capacity = capacity;
-	}
 	
 	@Slot(mandatory = true)
 	public String getCapacity() {
