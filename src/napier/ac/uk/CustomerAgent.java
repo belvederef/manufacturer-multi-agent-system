@@ -9,6 +9,7 @@ import jade.content.lang.Codec.CodecException;
 import jade.content.lang.sl.SLCodec;
 import jade.content.onto.Ontology;
 import jade.content.onto.OntologyException;
+import jade.content.onto.basic.Action;
 import jade.core.AID;
 import jade.core.Agent;
 import jade.core.behaviours.Behaviour;
@@ -26,6 +27,7 @@ import napier.ac.uk_ontology.elements.Computer;
 import napier.ac.uk_ontology.elements.Desktop;
 import napier.ac.uk_ontology.elements.Laptop;
 import napier.ac.uk_ontology.elements.Order;
+import napier.ac.uk_ontology.elements.actions.MakeOrder;
 import napier.ac.uk_ontology.elements.computerComponents.HardDrive;
 import napier.ac.uk_ontology.elements.computerComponents.Os;
 import napier.ac.uk_ontology.elements.computerComponents.OsLinux;
@@ -101,8 +103,8 @@ public class CustomerAgent extends Agent {
           // Sub-behaviours will execute in the order they are added
           dailyActivity.addSubBehaviour(new CreateOrder(myAgent));
           dailyActivity.addSubBehaviour(new FindManufacturers(myAgent));
-          dailyActivity.addSubBehaviour(new AskToOrder(myAgent));
-          dailyActivity.addSubBehaviour(new CollectOrderResponse(myAgent));
+          dailyActivity.addSubBehaviour(new AskIfCanManufacture(myAgent));
+          dailyActivity.addSubBehaviour(new MakeOrderAction(myAgent));
 //          dailyActivity.addSubBehaviour(new ReceiveOrder(myAgent));
           dailyActivity.addSubBehaviour(new EndDay(myAgent));
           
@@ -207,9 +209,9 @@ public class CustomerAgent extends Agent {
     }
   }
 
-  public class AskToOrder extends OneShotBehaviour {
+  public class AskIfCanManufacture extends OneShotBehaviour {
 
-    public AskToOrder(Agent a) {
+    public AskIfCanManufacture(Agent a) {
       super(a);
     }
 
@@ -224,12 +226,6 @@ public class CustomerAgent extends Agent {
       CanManufacture canManufacture = new CanManufacture();
       canManufacture.setManufacturer(manufacturer);
       canManufacture.setOrder(order);
-      
-      //IMPORTANT: According to FIPA, we need to create a wrapper Action object
-      // this is only for actions, not predicates!
-//        Action request = new Action();
-//        request.setAction(order);
-//        request.setActor(sellerAID); // the agent that you request to perform the action
       
       try {
         // Let JADE convert from Java objects to string
@@ -246,14 +242,15 @@ public class CustomerAgent extends Agent {
   }
 
   
-  public class CollectOrderResponse extends Behaviour {
+  public class MakeOrderAction extends Behaviour {
+    // Make order if the manufacturer said they can accept the order
+    // Otherwise proceed to end the day
     private Boolean replyReceived = false;
     
-    public CollectOrderResponse(Agent a) {
+    public MakeOrderAction(Agent a) {
       super(a);
     }
 
-    
     @Override
     public void action() {
       MessageTemplate mt = MessageTemplate.MatchSender(manufacturer);
@@ -263,26 +260,34 @@ public class CustomerAgent extends Agent {
         replyReceived = true;
         if(msg.getPerformative() == ACLMessage.CONFIRM) {
           // The order was accepted
-          System.out.println("\nThe order was accepted! YAY");
+          System.out.println("\nThe order was accepted! YAY! Now making request...");
           
-          // The order was accepted. Add it to the list of orders we're awaiting to receive
-          currentOrders.add(order);
+          // Prepare the action request message
+          ACLMessage orderMsg = new ACLMessage(ACLMessage.REQUEST);
+          orderMsg.setLanguage(codec.getName());
+          orderMsg.setOntology(ontology.getName()); 
+          orderMsg.addReceiver(manufacturer);
           
-//          if(!currentOrders.containsKey(bookTitle)) {
-//            ArrayList<Order> orders = new ArrayList<>();
-//            orders.add(new Order(msg.getSender(),
-//                Integer.parseInt(msg.getContent())));
-//            currentOrders.put(bookTitle, orders);
-//          }
-          //subsequent offers
-//          else {
-//            ArrayList<Order> orders = currentOrders.get(bookTitle);
-//            orders.add(new Order(msg.getSender(),
-//                Integer.parseInt(msg.getContent())));
-//          }
-            
+          // Prepare the content. 
+          MakeOrder makeOrder = new MakeOrder();
+          makeOrder.setBuyer(myAgent.getAID());
+          makeOrder.setOrder(order);
+          
+          Action request = new Action();
+          request.setAction(makeOrder);
+          request.setActor(manufacturer);
+          try {
+           getContentManager().fillContent(orderMsg, request); //send the wrapper object
+           send(orderMsg);
+           currentOrders.add(order); // Add this order to the list of orders we are awaiting to receive
+          }
+          catch (CodecException ce) {
+           ce.printStackTrace();
+          }
+          catch (OntologyException oe) {
+           oe.printStackTrace();
+          } 
         }
-
       } else {
         block();
       }

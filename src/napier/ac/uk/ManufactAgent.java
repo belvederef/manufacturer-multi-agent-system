@@ -4,12 +4,14 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 
+import jade.content.Concept;
 import jade.content.ContentElement;
 import jade.content.lang.Codec;
 import jade.content.lang.Codec.CodecException;
 import jade.content.lang.sl.SLCodec;
 import jade.content.onto.Ontology;
 import jade.content.onto.OntologyException;
+import jade.content.onto.basic.Action;
 import jade.core.AID;
 import jade.core.Agent;
 import jade.core.behaviours.Behaviour;
@@ -24,6 +26,7 @@ import jade.lang.acl.MessageTemplate;
 import napier.ac.uk_ontology.ShopOntology;
 import napier.ac.uk_ontology.elements.Computer;
 import napier.ac.uk_ontology.elements.Order;
+import napier.ac.uk_ontology.elements.actions.MakeOrder;
 import napier.ac.uk_ontology.elements.predicates.CanManufacture;
 
 // A manufacturer is both a buyer and a seller
@@ -34,7 +37,11 @@ public class ManufactAgent extends Agent {
   private ArrayList<AID> suppliers = new ArrayList<>();
   private ArrayList<AID> customers = new ArrayList<>();
   
-  private HashMap<AID, Order> allOrders = new HashMap<>(); // List of the computers and the agents that they are for
+  private HashMap<AID, Order> ordersApproved = new HashMap<>(); // List of the orders we said yes to
+  // Note: having an additional list prevents an agent to simply request us to complete an order. 
+  // They can only ask, if we said yes then they could request us to complete the order.
+  
+  private HashMap<AID, Order> ordersConfirmed = new HashMap<>(); // List of the orders and the agents that they are for
   private ArrayList<Object> componentsAvailable = new ArrayList<>(); // components available to build computers
   
   
@@ -185,7 +192,8 @@ public class ManufactAgent extends Agent {
     @Override
     public void action() {
       //This behaviour should only respond to QUERY_IF messages
-      // TODO: it could also reply to an action called "MakeOrder"
+      // TODO: once we reply saying yes, the customer should make an order with an 
+      // action called "MakeOrder". Query_if asks only if true or false
       MessageTemplate mt = MessageTemplate.MatchPerformative(ACLMessage.QUERY_IF); 
       ACLMessage msg = receive(mt);
       if(msg != null){
@@ -207,21 +215,11 @@ public class ManufactAgent extends Agent {
             System.out.println("The computer ordered is " + computer.toString());
             
             
-            //check if supplier has the components in stock
-//            if(itemsForSale.containsKey(cd.getSerialNumber())) {
-            	// If all the components can be purchased, accept the order
-//              System.out.println("Order accepted!");
-//            }
-//            else {
-//              System.out.println("Order declined");
-//            }
-            
             // Accept all orders just for development
       			ACLMessage reply = msg.createReply();
       			if(true) { 
-      			  // TODO: build logic for accepting. e.g. if the supplier has the components in stock
-      				// We can accept an order
-      			  allOrders.put(msg.getSender(), order); // Add to list of orders
+      			  // TODO: build logic for accepting. e.g. if the supplier has the components in stock or we do
+      			  ordersApproved.put(msg.getSender(), order); // Add to list of orders that we said yes to, but not yet confirmed
       				reply.setPerformative(ACLMessage.CONFIRM);
       				reply.setContent("Accepted");
       				
@@ -244,6 +242,50 @@ public class ManufactAgent extends Agent {
       }
     }
   }
+  
+  
+  private class CollectOrderRequests extends CyclicBehaviour{
+    // This behaviour accepts the requests for the order it has accepted in the previous query_if
+    // This behaviour accepts the order requests we said yes to, if the customer still wants them
+    public CollectOrderRequests(Agent a) {
+      super(a);
+    }
+    
+    @Override
+    public void action() {
+      // This behaviour should only respond to REQUEST messages
+      MessageTemplate mt = MessageTemplate.MatchPerformative(ACLMessage.REQUEST); 
+      ACLMessage msg = receive(mt);
+      if(msg != null){
+        try {
+          ContentElement ce = null;
+          System.out.println(msg.getContent());
+
+          // Let JADE convert from String to Java objects
+          ce = getContentManager().extractContent(msg);
+          if(ce instanceof Action) {
+            Concept action = ((Action)ce).getAction();
+            if (action instanceof MakeOrder) {
+              MakeOrder makeOrder = (MakeOrder)action;
+              // TODO: the components of the orders added to ordersConfirmed should be bought in the next step 
+              ordersConfirmed.put(makeOrder.getBuyer(), makeOrder.getOrder());
+            }
+          }
+        } catch (CodecException ce) {
+          ce.printStackTrace();
+        } catch (OntologyException oe) {
+          oe.printStackTrace();
+        }
+      }
+      else{
+        block();
+      }
+    }
+  }
+  
+  
+  
+  
   
 //  public class CollectOrders extends Behaviour {
 //    private int numRepliesReceived = 0;

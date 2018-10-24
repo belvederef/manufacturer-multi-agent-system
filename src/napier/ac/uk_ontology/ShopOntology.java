@@ -15,6 +15,8 @@ public class ShopOntology extends BeanOntology{
   private ShopOntology(String name) {
     super(name);
     try {
+      add("napier.ac.uk_ontology.elements.predicates");
+      add("napier.ac.uk_ontology.elements.actions");
       add("napier.ac.uk_ontology.elements.computerComponents");
       add("napier.ac.uk_ontology.elements");
     } catch (BeanOntologyException e) {
