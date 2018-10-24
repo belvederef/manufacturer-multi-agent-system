@@ -1,8 +1,6 @@
 package napier.ac.uk_ontology.elements.computerComponents;
 
-import jade.content.Concept;
-
-public class Screen implements Concept {
+public class Screen extends ComputerComponent {
 
 	@Override
 	public String toString() {

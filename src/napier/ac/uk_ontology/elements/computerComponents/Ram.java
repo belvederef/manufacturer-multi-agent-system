@@ -1,9 +1,8 @@
 package napier.ac.uk_ontology.elements.computerComponents;
 
-import jade.content.Concept;
 import jade.content.onto.annotations.Slot;
 
-public class Ram implements Concept {
+public class Ram extends ComputerComponent {
 	private String capacity;
 	
 	@Slot(mandatory = true)

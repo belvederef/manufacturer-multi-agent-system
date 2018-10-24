@@ -2,6 +2,6 @@ package napier.ac.uk_ontology.elements.computerComponents;
 
 import jade.content.Concept;
 
-public class Motherboard extends ComputerComponent {
+public class ComputerComponent implements Concept {
 
 }

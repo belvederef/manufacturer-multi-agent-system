@@ -2,6 +2,7 @@ package napier.ac.uk;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 
 import jade.content.ContentElement;
 import jade.content.lang.Codec;
@@ -34,9 +35,12 @@ public class ManufactAgent extends Agent {
   private ArrayList<AID> suppliers = new ArrayList<>();
   private ArrayList<AID> customers = new ArrayList<>();
   
-  private ArrayList<String> componentsToBuy = new ArrayList<>(); // components to buy for a order
-  private HashMap<String,ArrayList<Order>> currentOrders = new HashMap<>();
-  private HashMap<AID,ArrayList<Order>> allOrders = new HashMap<>(); // List of the computers and the agents that they are for
+  private HashMap<AID, Order> allOrders = new HashMap<>(); // List of the computers and the agents that they are for
+  private ArrayList<Object> componentsAvailable = new ArrayList<>(); // components available to build computers
+  
+  
+  private ArrayList<String> componentsToBuy = new ArrayList<>(); // components to buy for orders
+  private HashMap<String, ArrayList<Order>> currentOrders = new HashMap<>();
   private HashMap<AID,ArrayList<Computer>> computersAvailable = new HashMap<>(); // List of completed computers
   
   private AID tickerAgent;
@@ -95,17 +99,28 @@ public class ManufactAgent extends Agent {
         }
         if(msg.getContent().equals("new day")) {
           // Spawn a new sequential behaviour for the day's activities
-          SequentialBehaviour dailyActivity = new SequentialBehaviour();
+//          SequentialBehaviour dailyActivity = new SequentialBehaviour();
           
           // Sub-behaviours will execute in the order they are added
-          dailyActivity.addSubBehaviour(new FindSuppliers(myAgent));
-          dailyActivity.addSubBehaviour(new FindCustomers(myAgent));
-          dailyActivity.addSubBehaviour(new OrderReplyBehaviour(myAgent));
-//          dailyActivity.addSubBehaviour(new CollectOrders(myAgent));
-//          dailyActivity.addSubBehaviour(new SendEnquiries(myAgent));
-//          dailyActivity.addSubBehaviour(new CollectOffers(myAgent));
-          dailyActivity.addSubBehaviour(new EndDay(myAgent));
-          myAgent.addBehaviour(dailyActivity);
+          myAgent.addBehaviour(new FindSuppliers(myAgent));
+          myAgent.addBehaviour(new FindCustomers(myAgent));
+          
+          // Add the cyclic behavior to a list that will remove all of them at the end of the day
+          CyclicBehaviour orb = new OrderReplyBehaviour(myAgent);
+          myAgent.addBehaviour(orb);
+          
+          ArrayList<Behaviour> cyclicBehaviours = new ArrayList<>();
+          cyclicBehaviours.add(orb);
+          
+
+          myAgent.addBehaviour(new EndDayListener(myAgent, cyclicBehaviours));
+          
+          
+//        dailyActivity.addSubBehaviour(new CollectOrders(myAgent));
+//        dailyActivity.addSubBehaviour(new SendEnquiries(myAgent));
+//        dailyActivity.addSubBehaviour(new CollectOffers(myAgent));
+          
+//          myAgent.addBehaviour(dailyActivity);
         }
         else {
           //termination message to end simulation
@@ -159,7 +174,7 @@ public class ManufactAgent extends Agent {
       customerTemplate.addServices(sd);
       try{
         customers.clear();
-        DFAgentDescription[] agentsType  = DFService.search(myAgent,customerTemplate); 
+        DFAgentDescription[] agentsType  = DFService.search(myAgent, customerTemplate); 
         for(int i=0; i<agentsType.length; i++){
           customers.add(agentsType[i].getName()); // this is the AID
 //          System.out.println("found customer " + agentsType[i].getName());
@@ -212,28 +227,27 @@ public class ManufactAgent extends Agent {
 //            }
             
             // Accept all orders just for development
-			ACLMessage reply = msg.createReply();
-			if(true) { // TODO: build logic for accepting. e.g. if the supplier has the components in stock
-				// We can accept an order
-				reply.setPerformative(ACLMessage.CONFIRM);
-				reply.setContent("Accepted");
-				
-				System.out.println("\nSending response to the customer. We accept.");
-			}
-			else {
-				reply.setPerformative(ACLMessage.DISCONFIRM);
-			}
-			myAgent.send(reply);
+      			ACLMessage reply = msg.createReply();
+      			if(true) { // TODO: build logic for accepting. e.g. if the supplier has the components in stock
+      				// We can accept an order
+      			  allOrders.put(msg.getSender(), order); // Add to list of orders
+      				reply.setPerformative(ACLMessage.CONFIRM);
+      				reply.setContent("Accepted");
+      				
+      				System.out.println("\nSending response to the customer. We accept.");
+      			}
+      			else {
+      				reply.setPerformative(ACLMessage.DISCONFIRM);
+      			}
+      			myAgent.send(reply);
           }
         }
-
         catch (CodecException ce) {
           ce.printStackTrace();
         }
         catch (OntologyException oe) {
           oe.printStackTrace();
         }
-
       }
       else{
         block();
@@ -408,36 +422,77 @@ public class ManufactAgent extends Agent {
 //  
   
   
-  public class EndDay extends OneShotBehaviour {
+//  public class EndDay extends OneShotBehaviour {
+//    // This came from the buyer agent example. Probably not necessary for this agent
+//    
+//    public EndDay(Agent a) {
+//      super(a);
+//    }
+//
+//    @Override
+//    public void action() {
+//      // Inform the other agents we are communicating with that we are done
+//      ACLMessage supplierDone = new ACLMessage(ACLMessage.INFORM);
+//      supplierDone.setContent("done");
+//      for(AID supplier : suppliers) {
+//        supplierDone.addReceiver(supplier);
+//      }
+//      myAgent.send(supplierDone);
+//      
+//      ACLMessage customerDone = new ACLMessage(ACLMessage.INFORM);
+//      customerDone.setContent("done");
+//      for(AID customer : customers) {
+//        customerDone.addReceiver(customer);
+//      }
+//      myAgent.send(customerDone);
+//      
+//      
+//     
+//     // Inform the ticker agent that we are done 
+//      ACLMessage doneMsg = new ACLMessage(ACLMessage.INFORM);
+//      doneMsg.setContent("done");
+//      doneMsg.addReceiver(tickerAgent);
+//      myAgent.send(doneMsg);
+//  }
+  
+  
+  public class EndDayListener extends CyclicBehaviour {
+    private int customerFinished = 0;
+    private List<Behaviour> toRemove;
     
-    public EndDay(Agent a) {
+    public EndDayListener(Agent a, List<Behaviour> toRemove) {
       super(a);
+      this.toRemove = toRemove;
     }
 
     @Override
     public void action() {
-      ACLMessage msg = new ACLMessage(ACLMessage.INFORM);
-      msg.addReceiver(tickerAgent);
-      msg.setContent("done");
-      myAgent.send(msg);
-      
-      //send a message to each supplier that we have finished
-      ACLMessage supplierDone = new ACLMessage(ACLMessage.INFORM);
-      supplierDone.setContent("done");
-      for(AID supplier : suppliers) {
-        supplierDone.addReceiver(supplier);
+      MessageTemplate mt = MessageTemplate.MatchContent("done");
+      ACLMessage msg = myAgent.receive(mt);
+      if(msg != null) {
+        customerFinished++;
+        System.out.println("receiving from customer: " + msg.getContent());
       }
-      myAgent.send(supplierDone);
-      
-      //send a message to each customer that we have finished
-      ACLMessage customerDone = new ACLMessage(ACLMessage.INFORM);
-      customerDone.setContent("done");
-      for(AID customer : customers) {
-        customerDone.addReceiver(customer);
+      else {
+        block();
       }
-      myAgent.send(customerDone);
+      if(customerFinished == customers.size()) {
+        // We are finished when we have received a finish message from all customers
+        // Inform the ticker agent that we are done 
+        ACLMessage doneMsg = new ACLMessage(ACLMessage.INFORM);
+        doneMsg.setContent("done");
+        doneMsg.addReceiver(tickerAgent);
+        myAgent.send(doneMsg);
+        
+        // Remove cyclic behaviours
+        for(Behaviour b : toRemove) {
+          myAgent.removeBehaviour(b);
+        }
+        myAgent.removeBehaviour(this);
+      }
     }
     
   }
+  
 
 }

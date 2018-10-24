@@ -9,7 +9,6 @@ import jade.content.lang.Codec.CodecException;
 import jade.content.lang.sl.SLCodec;
 import jade.content.onto.Ontology;
 import jade.content.onto.OntologyException;
-import jade.content.onto.basic.Action;
 import jade.core.AID;
 import jade.core.Agent;
 import jade.core.behaviours.Behaviour;
@@ -44,7 +43,6 @@ public class CustomerAgent extends Agent {
   private ArrayList<Order> currentOrders = new ArrayList<>(); // The orders that were accepted so far
   private Order order; // The order for today
   private AID tickerAgent;
-  private int numQueriesSent;
   @Override
   protected void setup() {
     // Set up the ontology
@@ -105,7 +103,7 @@ public class CustomerAgent extends Agent {
           dailyActivity.addSubBehaviour(new FindManufacturers(myAgent));
           dailyActivity.addSubBehaviour(new AskToOrder(myAgent));
           dailyActivity.addSubBehaviour(new CollectOrderResponse(myAgent));
-          dailyActivity.addSubBehaviour(new ReceiveOrder(myAgent));
+//          dailyActivity.addSubBehaviour(new ReceiveOrder(myAgent));
           dailyActivity.addSubBehaviour(new EndDay(myAgent));
           
           myAgent.addBehaviour(dailyActivity);
@@ -229,7 +227,6 @@ public class CustomerAgent extends Agent {
 
     @Override
     public void action() {
-      numQueriesSent = 0;
       // Prepare the Query-IF message. Asks the manufacturer to if they will accept the order
       ACLMessage msg = new ACLMessage(ACLMessage.QUERY_IF);
       msg.setLanguage(codec.getName());
@@ -250,7 +247,6 @@ public class CustomerAgent extends Agent {
         // Let JADE convert from Java objects to string
         getContentManager().fillContent(msg, canManufacture);
         send(msg);
-        numQueriesSent++;
        }
        catch (CodecException ce) {
         ce.printStackTrace();
@@ -263,7 +259,7 @@ public class CustomerAgent extends Agent {
 
   
   public class CollectOrderResponse extends Behaviour {
-    private int numRepliesReceived = 0;
+    private Boolean replyReceived = false;
     
     public CollectOrderResponse(Agent a) {
       super(a);
@@ -276,8 +272,9 @@ public class CustomerAgent extends Agent {
       
       MessageTemplate mt = MessageTemplate.MatchSender(manufacturer);
       ACLMessage msg = myAgent.receive(mt);
+      System.out.println(msg);
       if(msg != null) {
-        numRepliesReceived++;
+        replyReceived = true;
         if(msg.getPerformative() == ACLMessage.CONFIRM) {
           // The order was accepted
           System.out.println("\nThe order was accepted! YAY");
@@ -307,7 +304,9 @@ public class CustomerAgent extends Agent {
 
     @Override
     public boolean done() {
-      return numRepliesReceived == numQueriesSent;
+      System.out.println("in customer done.");
+      System.out.println(replyReceived);
+      return replyReceived;
     }
 
     @Override
@@ -331,6 +330,7 @@ public class CustomerAgent extends Agent {
   
   
   public class ReceiveOrder extends Behaviour {
+    // this is faulty and makes the app crash.
     private int numRepliesReceived = 0;
     
     public ReceiveOrder(Agent a) {
@@ -407,15 +407,21 @@ public class CustomerAgent extends Agent {
 
     @Override
     public void action() {
-      ACLMessage msg = new ACLMessage(ACLMessage.INFORM);
-      msg.addReceiver(tickerAgent);
-      msg.setContent("done");
-      myAgent.send(msg);
-      //send a message to each manufacturer informing that we have finished ordering for today
+      // Inform the ticker agent that we are done 
+      ACLMessage doneMsg = new ACLMessage(ACLMessage.INFORM);
+      doneMsg.setContent("done");
+      doneMsg.addReceiver(tickerAgent);
+      myAgent.send(doneMsg);
+      
+      System.out.println("Sending done to ticker");
+      
+      //send a message to the manufacturer informing that we have finished ordering for today
       ACLMessage manufacturerDone = new ACLMessage(ACLMessage.INFORM);
       manufacturerDone.setContent("done");
       manufacturerDone.addReceiver(manufacturer);
       myAgent.send(manufacturerDone);
+      System.out.println("customer is sending " + manufacturerDone.getContent() +
+          " to " + manufacturerDone.getAllReceiver().toString());
     }
     
   }

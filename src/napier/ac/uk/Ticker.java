@@ -97,12 +97,12 @@ public class Ticker extends Agent {
 					e.printStackTrace();
 				}
 				//send new day message to each agent
-				ACLMessage tick = new ACLMessage(ACLMessage.INFORM);
-				tick.setContent("new day");
+				ACLMessage newDayMsg = new ACLMessage(ACLMessage.INFORM);
+				newDayMsg.setContent("new day");
 				for(AID id : simulationAgents) {
-					tick.addReceiver(id);
+					newDayMsg.addReceiver(id);
 				}
-				myAgent.send(tick);
+				myAgent.send(newDayMsg);
 				step++;
 				day++;
 				break;
@@ -111,6 +111,7 @@ public class Ticker extends Agent {
 				MessageTemplate mt = MessageTemplate.MatchContent("done");
 				ACLMessage msg = myAgent.receive(mt);
 				if(msg != null) {
+				  System.out.println("\nDone message received by " + msg.getSender());
 					numFinReceived++;
 					if(numFinReceived >= simulationAgents.size()) {
 						step++;
@@ -119,7 +120,6 @@ public class Ticker extends Agent {
 				else {
 					block();
 				}
-
 			}
 		}
 
@@ -140,7 +140,7 @@ public class Ticker extends Agent {
 		
 		@Override
 		public int onEnd() {
-			System.out.println("End of day " + day);
+			System.out.println("\n\n\nEnd of day " + day + "\n\n\n");
 			if(day == NUM_DAYS) {
 				//send termination message to each agent
 				ACLMessage msg = new ACLMessage(ACLMessage.INFORM);
