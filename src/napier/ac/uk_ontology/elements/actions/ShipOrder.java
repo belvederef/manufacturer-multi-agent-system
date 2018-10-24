@@ -1,8 +1,9 @@
-package napier.ac.uk_ontology.elements;
+package napier.ac.uk_ontology.elements.actions;
 
 import jade.content.AgentAction;
 import jade.content.onto.annotations.Slot;
 import jade.core.AID;
+import napier.ac.uk_ontology.elements.Order;
 
 //Agent actions i.e. special concepts that indicate actions that can be performed by some agents e.g.
 //(Sell (Book :title �The Lord of the rings�) (Person :name John))

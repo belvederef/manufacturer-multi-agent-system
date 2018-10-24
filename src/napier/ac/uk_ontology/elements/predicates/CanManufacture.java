@@ -1,11 +1,12 @@
-package napier.ac.uk_ontology.elements;
+package napier.ac.uk_ontology.elements.predicates;
 
 import jade.content.Predicate;
 import jade.core.AID;
+import napier.ac.uk_ontology.elements.Order;
 
 //are expressions that say something about the status of the world and can be
 //true or false e.g. (Works-for (Person :name John) (Company :name TILAB))
-//stating that “the person John works for the company TILAB”.
+//stating that ï¿½the person John works for the company TILABï¿½.
 //Predicates can be meaningfully used for instance as the content of an INFORM or QUERY-IF
 //message, while would make no sense if used as the content of a REQUEST message. 
 

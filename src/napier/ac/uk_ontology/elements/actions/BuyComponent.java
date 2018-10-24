@@ -1,11 +1,11 @@
-package napier.ac.uk_ontology.elements;
+package napier.ac.uk_ontology.elements.actions;
 
 import jade.content.AgentAction;
 import jade.content.onto.annotations.Slot;
 import jade.core.AID;
 import napier.ac.uk_ontology.elements.computerComponents.ComputerComponent;
 
-public class SellComponent implements AgentAction {
+public class BuyComponent implements AgentAction {
   private AID buyer;
   private ComputerComponent component;
   

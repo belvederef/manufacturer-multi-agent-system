@@ -15,7 +15,6 @@ import jade.core.Agent;
 import jade.core.behaviours.Behaviour;
 import jade.core.behaviours.CyclicBehaviour;
 import jade.core.behaviours.OneShotBehaviour;
-import jade.core.behaviours.SequentialBehaviour;
 import jade.domain.DFService;
 import jade.domain.FIPAException;
 import jade.domain.FIPAAgentManagement.DFAgentDescription;
@@ -23,9 +22,9 @@ import jade.domain.FIPAAgentManagement.ServiceDescription;
 import jade.lang.acl.ACLMessage;
 import jade.lang.acl.MessageTemplate;
 import napier.ac.uk_ontology.ShopOntology;
-import napier.ac.uk_ontology.elements.CanManufacture;
 import napier.ac.uk_ontology.elements.Computer;
 import napier.ac.uk_ontology.elements.Order;
+import napier.ac.uk_ontology.elements.predicates.CanManufacture;
 
 // A manufacturer is both a buyer and a seller
 public class ManufactAgent extends Agent {
@@ -98,10 +97,6 @@ public class ManufactAgent extends Agent {
           tickerAgent = msg.getSender();
         }
         if(msg.getContent().equals("new day")) {
-          // Spawn a new sequential behaviour for the day's activities
-//          SequentialBehaviour dailyActivity = new SequentialBehaviour();
-          
-          // Sub-behaviours will execute in the order they are added
           myAgent.addBehaviour(new FindSuppliers(myAgent));
           myAgent.addBehaviour(new FindCustomers(myAgent));
           
@@ -114,13 +109,6 @@ public class ManufactAgent extends Agent {
           
 
           myAgent.addBehaviour(new EndDayListener(myAgent, cyclicBehaviours));
-          
-          
-//        dailyActivity.addSubBehaviour(new CollectOrders(myAgent));
-//        dailyActivity.addSubBehaviour(new SendEnquiries(myAgent));
-//        dailyActivity.addSubBehaviour(new CollectOffers(myAgent));
-          
-//          myAgent.addBehaviour(dailyActivity);
         }
         else {
           //termination message to end simulation
@@ -189,6 +177,7 @@ public class ManufactAgent extends Agent {
   
   private class OrderReplyBehaviour extends CyclicBehaviour{
     // This behaviour accepts or decline an order offer
+    // It cycles until the behaviour is not removed at the end of the day
     public OrderReplyBehaviour(Agent a) {
       super(a);
     }
@@ -196,6 +185,7 @@ public class ManufactAgent extends Agent {
     @Override
     public void action() {
       //This behaviour should only respond to QUERY_IF messages
+      // TODO: it could also reply to an action called "MakeOrder"
       MessageTemplate mt = MessageTemplate.MatchPerformative(ACLMessage.QUERY_IF); 
       ACLMessage msg = receive(mt);
       if(msg != null){
@@ -228,7 +218,8 @@ public class ManufactAgent extends Agent {
             
             // Accept all orders just for development
       			ACLMessage reply = msg.createReply();
-      			if(true) { // TODO: build logic for accepting. e.g. if the supplier has the components in stock
+      			if(true) { 
+      			  // TODO: build logic for accepting. e.g. if the supplier has the components in stock
       				// We can accept an order
       			  allOrders.put(msg.getSender(), order); // Add to list of orders
       				reply.setPerformative(ACLMessage.CONFIRM);
@@ -248,12 +239,10 @@ public class ManufactAgent extends Agent {
         catch (OntologyException oe) {
           oe.printStackTrace();
         }
-      }
-      else{
+      } else{
         block();
       }
     }
-    
   }
   
 //  public class CollectOrders extends Behaviour {
@@ -471,11 +460,10 @@ public class ManufactAgent extends Agent {
       ACLMessage msg = myAgent.receive(mt);
       if(msg != null) {
         customerFinished++;
-        System.out.println("receiving from customer: " + msg.getContent());
-      }
-      else {
+      } else {
         block();
       }
+      
       if(customerFinished == customers.size()) {
         // We are finished when we have received a finish message from all customers
         // Inform the ticker agent that we are done 
@@ -491,8 +479,5 @@ public class ManufactAgent extends Agent {
         myAgent.removeBehaviour(this);
       }
     }
-    
   }
-  
-
 }

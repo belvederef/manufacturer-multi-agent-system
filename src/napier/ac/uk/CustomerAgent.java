@@ -22,7 +22,6 @@ import jade.domain.FIPAAgentManagement.ServiceDescription;
 import jade.lang.acl.ACLMessage;
 import jade.lang.acl.MessageTemplate;
 import napier.ac.uk_ontology.ShopOntology;
-import napier.ac.uk_ontology.elements.CanManufacture;
 import napier.ac.uk_ontology.elements.Computer;
 import napier.ac.uk_ontology.elements.Desktop;
 import napier.ac.uk_ontology.elements.Laptop;
@@ -32,6 +31,7 @@ import napier.ac.uk_ontology.elements.computerComponents.Os;
 import napier.ac.uk_ontology.elements.computerComponents.OsLinux;
 import napier.ac.uk_ontology.elements.computerComponents.OsWindows;
 import napier.ac.uk_ontology.elements.computerComponents.Ram;
+import napier.ac.uk_ontology.elements.predicates.CanManufacture;
 
 
 // TODO: Add logic to reset if this agent cannot find a manufacturer
@@ -129,9 +129,7 @@ public class CustomerAgent extends Agent {
     @Override
     public void action() {
       // Add a new order for each day. Prepare the content. 
-      
       Random rand = new Random();
-//      Computer computer = new Computer();
       
       // Declare variable parts
       Computer computer;
@@ -142,16 +140,8 @@ public class CustomerAgent extends Agent {
       // Randomly generate components
       if(rand.nextFloat() < 0.5) {
     	computer = new Desktop();
-//    	CpuDesktop cpu = new CpuDesktop();
-//    	MotherboardDesktop motherboard = new MotherboardDesktop();
-//    	Screen screen = new Screen();
-    	
       } else {
     	computer = new Laptop();
-//    	CpuLaptop cpu = new CpuLaptop();
-//    	MotherboardLaptop motherboard = new MotherboardLaptop();
-//    	Screen screen = new Screen();
-    	
       }
       if(rand.nextFloat() < 0.5) {
     	ram = new Ram();
@@ -214,9 +204,7 @@ public class CustomerAgent extends Agent {
       catch(FIPAException e) {
         e.printStackTrace();
       }
-
     }
-
   }
 
   public class AskToOrder extends OneShotBehaviour {
@@ -268,8 +256,6 @@ public class CustomerAgent extends Agent {
     
     @Override
     public void action() {
-//      CanManufacture canManufacture = new CanManufacture();
-      
       MessageTemplate mt = MessageTemplate.MatchSender(manufacturer);
       ACLMessage msg = myAgent.receive(mt);
       System.out.println(msg);
@@ -304,25 +290,12 @@ public class CustomerAgent extends Agent {
 
     @Override
     public boolean done() {
-      System.out.println("in customer done.");
-      System.out.println(replyReceived);
       return replyReceived;
     }
 
     @Override
     public int onEnd() {
-      //print the offers
-//      for(String book : booksToBuy) {
-//        if(currentOrders.containsKey(book)) {
-//          ArrayList<Order> orders = currentOrders.get(book);
-//          for(Offer o : orders) {
-//            System.out.println(book + "," + o.getManufacturer().getLocalName() + "," + o.getPrice());
-//          }
-//        }
-//        else {
-//          System.out.println("No offers for " + book);
-//        }
-//      }
+      // Do something on end
       return 0;
     }
 
@@ -340,8 +313,6 @@ public class CustomerAgent extends Agent {
     
     @Override
     public void action() {
-      
-
       // TODO: use an ontology action such us matchPerformative shipOrder instead of sender
       // I can try with .matchOntology(shipOrder)
       MessageTemplate mt = MessageTemplate.MatchSender(manufacturer);
@@ -384,7 +355,6 @@ public class CustomerAgent extends Agent {
     @Override
     public boolean done() {
       return true;
-//      return numRepliesReceived == numQueriesSent;
     }
 
     @Override
@@ -407,22 +377,13 @@ public class CustomerAgent extends Agent {
 
     @Override
     public void action() {
-      // Inform the ticker agent that we are done 
+      // Inform the ticker agent and the manufacturer that we are done 
       ACLMessage doneMsg = new ACLMessage(ACLMessage.INFORM);
       doneMsg.setContent("done");
       doneMsg.addReceiver(tickerAgent);
+      doneMsg.addReceiver(manufacturer);
+      
       myAgent.send(doneMsg);
-      
-      System.out.println("Sending done to ticker");
-      
-      //send a message to the manufacturer informing that we have finished ordering for today
-      ACLMessage manufacturerDone = new ACLMessage(ACLMessage.INFORM);
-      manufacturerDone.setContent("done");
-      manufacturerDone.addReceiver(manufacturer);
-      myAgent.send(manufacturerDone);
-      System.out.println("customer is sending " + manufacturerDone.getContent() +
-          " to " + manufacturerDone.getAllReceiver().toString());
     }
-    
   }
 }
