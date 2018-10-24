@@ -3,6 +3,7 @@ package napier.ac.uk;
 import java.util.ArrayList;
 import java.util.Random;
 
+import jade.content.ContentElement;
 import jade.content.lang.Codec;
 import jade.content.lang.Codec.CodecException;
 import jade.content.lang.sl.SLCodec;
@@ -27,23 +28,20 @@ import napier.ac.uk_ontology.elements.Computer;
 import napier.ac.uk_ontology.elements.Desktop;
 import napier.ac.uk_ontology.elements.Laptop;
 import napier.ac.uk_ontology.elements.Order;
-import napier.ac.uk_ontology.elements.computerComponents.CpuDesktop;
-import napier.ac.uk_ontology.elements.computerComponents.CpuLaptop;
 import napier.ac.uk_ontology.elements.computerComponents.HardDrive;
-import napier.ac.uk_ontology.elements.computerComponents.MotherboardDesktop;
-import napier.ac.uk_ontology.elements.computerComponents.MotherboardLaptop;
 import napier.ac.uk_ontology.elements.computerComponents.Os;
 import napier.ac.uk_ontology.elements.computerComponents.OsLinux;
 import napier.ac.uk_ontology.elements.computerComponents.OsWindows;
 import napier.ac.uk_ontology.elements.computerComponents.Ram;
-import napier.ac.uk_ontology.elements.computerComponents.Screen;
 
+
+// TODO: Add logic to reset if this agent cannot find a manufacturer
 public class CustomerAgent extends Agent {
   private Codec codec = new SLCodec();
   private Ontology ontology = ShopOntology.getInstance();
   
-  private ArrayList<AID> manufacturers = new ArrayList<>();
-  private ArrayList<Order> currentOrders = new ArrayList<>(); // The orders that the agent has made so far
+  private AID manufacturer;
+  private ArrayList<Order> currentOrders = new ArrayList<>(); // The orders that were accepted so far
   private Order order; // The order for today
   private AID tickerAgent;
   private int numQueriesSent;
@@ -105,8 +103,9 @@ public class CustomerAgent extends Agent {
           // Sub-behaviours will execute in the order they are added
           dailyActivity.addSubBehaviour(new CreateOrder(myAgent));
           dailyActivity.addSubBehaviour(new FindManufacturers(myAgent));
-          dailyActivity.addSubBehaviour(new AskOrder(myAgent));
-          dailyActivity.addSubBehaviour(new CollectOrders(myAgent));
+          dailyActivity.addSubBehaviour(new AskToOrder(myAgent));
+          dailyActivity.addSubBehaviour(new CollectOrderResponse(myAgent));
+          dailyActivity.addSubBehaviour(new ReceiveOrder(myAgent));
           dailyActivity.addSubBehaviour(new EndDay(myAgent));
           
           myAgent.addBehaviour(dailyActivity);
@@ -207,10 +206,11 @@ public class CustomerAgent extends Agent {
       sd.setType("manufacturer");
       manufacturerTemplate.addServices(sd);
       try{
-        manufacturers.clear();  // Refresh the manufacturer list everyday
-        DFAgentDescription[] agentsType  = DFService.search(myAgent, manufacturerTemplate); 
-        for(int i=0; i<agentsType.length; i++){
-          manufacturers.add(agentsType[i].getName()); // Add the AID to the list of manufacturers
+        DFAgentDescription[] agentsList  = DFService.search(myAgent, manufacturerTemplate);
+        if (agentsList.length > 0) {
+          manufacturer = agentsList[0].getName(); // Get only the first manufacturer found 
+        } else {
+          // if no manufacturer is found, keep searching
         }
       }
       catch(FIPAException e) {
@@ -221,9 +221,9 @@ public class CustomerAgent extends Agent {
 
   }
 
-  public class AskOrder extends OneShotBehaviour {
+  public class AskToOrder extends OneShotBehaviour {
 
-    public AskOrder(Agent a) {
+    public AskToOrder(Agent a) {
       super(a);
     }
 
@@ -234,70 +234,56 @@ public class CustomerAgent extends Agent {
       ACLMessage msg = new ACLMessage(ACLMessage.QUERY_IF);
       msg.setLanguage(codec.getName());
       msg.setOntology(ontology.getName()); 
+      msg.addReceiver(manufacturer);
       
+      CanManufacture canManufacture = new CanManufacture();
+      canManufacture.setManufacturer(manufacturer);
+      canManufacture.setOrder(order);
       
-      for(AID manufacturer : manufacturers) {
-        // I am not sure whether this solution is the best. Because CanManifacture
-        // expects a manifacturer AID, the line canManufacture.setManufacturer(manufacturer);
-        // can only work within a loop going through all manufacturers.
-        // Using msg.clearAllReceiver(); I prevent that the line send(msg); sends the same message 
-        // to the same manifacturer (as send(msg) sends the message to all the AIDs in the list of 
-        // receivers). Another solution could be to use msg.removeReceiver at the end of the loop
-        msg.clearAllReceiver();
-        msg.addReceiver(manufacturer);
-        
-        CanManufacture canManufacture = new CanManufacture();
-        canManufacture.setManufacturer(manufacturer);
-        canManufacture.setOrder(order);
-        
-        //IMPORTANT: According to FIPA, we need to create a wrapper Action object
+      //IMPORTANT: According to FIPA, we need to create a wrapper Action object
+      // this is only for actions, not predicates!
 //        Action request = new Action();
 //        request.setAction(order);
 //        request.setActor(sellerAID); // the agent that you request to perform the action
-        
-        try {
-          // Let JADE convert from Java objects to string
-          getContentManager().fillContent(msg, canManufacture);
-          send(msg);
-          numQueriesSent++;
-         }
-         catch (CodecException ce) {
-          ce.printStackTrace();
-         }
-         catch (OntologyException oe) {
-          oe.printStackTrace();
-         } 
-        
-      }
+      
+      try {
+        // Let JADE convert from Java objects to string
+        getContentManager().fillContent(msg, canManufacture);
+        send(msg);
+        numQueriesSent++;
+       }
+       catch (CodecException ce) {
+        ce.printStackTrace();
+       }
+       catch (OntologyException oe) {
+        oe.printStackTrace();
+       } 
     }
   }
 
-  public class CollectOrders extends Behaviour {
+  
+  public class CollectOrderResponse extends Behaviour {
     private int numRepliesReceived = 0;
     
-    public CollectOrders(Agent a) {
+    public CollectOrderResponse(Agent a) {
       super(a);
-      currentOrders.clear();
     }
 
     
     @Override
     public void action() {
-      boolean received = false;
+//      CanManufacture canManufacture = new CanManufacture();
       
-      CanManufacture canManufacture = new CanManufacture();
-      
-      // TODO: probably better to match on manufacturer AID
-	  MessageTemplate mt = MessageTemplate.or(MessageTemplate.MatchPerformative(ACLMessage.CONFIRM),
-			MessageTemplate.MatchPerformative(ACLMessage.DISCONFIRM));
-      
+      MessageTemplate mt = MessageTemplate.MatchSender(manufacturer);
       ACLMessage msg = myAgent.receive(mt);
       if(msg != null) {
-        received = true;
         numRepliesReceived++;
         if(msg.getPerformative() == ACLMessage.CONFIRM) {
           // The order was accepted
-          System.out.println("Offer accepted! YAY");
+          System.out.println("\nThe order was accepted! YAY");
+          
+          // The order was accepted. Add it to the list of orders we're awaiting to receive
+          currentOrders.add(order);
           
 //          if(!currentOrders.containsKey(bookTitle)) {
 //            ArrayList<Order> orders = new ArrayList<>();
@@ -314,13 +300,10 @@ public class CustomerAgent extends Agent {
             
         }
 
-        }
-      if(!received) {
+      } else {
         block();
       }
     }
-
-    
 
     @Override
     public boolean done() {
@@ -347,6 +330,74 @@ public class CustomerAgent extends Agent {
   }
   
   
+  public class ReceiveOrder extends Behaviour {
+    private int numRepliesReceived = 0;
+    
+    public ReceiveOrder(Agent a) {
+      super(a);
+    }
+
+    
+    @Override
+    public void action() {
+      
+
+      // TODO: use an ontology action such us matchPerformative shipOrder instead of sender
+      // I can try with .matchOntology(shipOrder)
+      MessageTemplate mt = MessageTemplate.MatchSender(manufacturer);
+      ACLMessage msg = myAgent.receive(mt);
+      if(msg != null) {
+        
+        try {
+          ContentElement ce = null;
+          
+          // Let JADE convert from String to Java objects
+          // Output will be a ContentElement
+          ce = getContentManager().extractContent(msg);
+          if (ce instanceof Order) {
+            Order order = (Order) ce;
+            
+            // Optional, for testing
+            Computer comp = order.getComputer();
+            System.out.println("The computer is " + comp.toString());
+           
+            // Check that the order received was one that we were waiting for, that is contained in currentOrders
+            
+            // If it is, remove the receive order from the list currentOrders
+            
+          }
+          
+          
+          
+        } catch (CodecException ce) {
+            ce.printStackTrace();
+          }
+          catch (OntologyException oe) {
+            oe.printStackTrace();
+          }
+        
+      } else {
+        block();
+      }
+    }
+
+    @Override
+    public boolean done() {
+      return true;
+//      return numRepliesReceived == numQueriesSent;
+    }
+
+    @Override
+    public int onEnd() {
+      // Do something on end
+      return 0;
+    }
+
+  }
+  
+  
+  
+  
   
   public class EndDay extends OneShotBehaviour {
     
@@ -363,9 +414,7 @@ public class CustomerAgent extends Agent {
       //send a message to each manufacturer informing that we have finished ordering for today
       ACLMessage manufacturerDone = new ACLMessage(ACLMessage.INFORM);
       manufacturerDone.setContent("done");
-      for(AID manufacturer : manufacturers) {
-        manufacturerDone.addReceiver(manufacturer);
-      }
+      manufacturerDone.addReceiver(manufacturer);
       myAgent.send(manufacturerDone);
     }
     
