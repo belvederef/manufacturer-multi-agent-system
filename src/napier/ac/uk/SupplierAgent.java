@@ -6,7 +6,10 @@ import java.util.List;
 
 import jade.content.Concept;
 import jade.content.ContentElement;
+import jade.content.lang.Codec;
 import jade.content.lang.Codec.CodecException;
+import jade.content.lang.sl.SLCodec;
+import jade.content.onto.Ontology;
 import jade.content.onto.OntologyException;
 import jade.content.onto.basic.Action;
 import jade.core.AID;
@@ -20,11 +23,15 @@ import jade.domain.FIPAAgentManagement.DFAgentDescription;
 import jade.domain.FIPAAgentManagement.ServiceDescription;
 import jade.lang.acl.ACLMessage;
 import jade.lang.acl.MessageTemplate;
+import napier.ac.uk_ontology.ShopOntology;
 import napier.ac.uk_ontology.elements.actions.BuyComponent;
 import napier.ac.uk_ontology.elements.computerComponents.ComputerComponent;
 import napier.ac.uk_ontology.elements.predicates.OwnsComponent;
 
 public abstract class SupplierAgent extends Agent {
+  private Codec codec = new SLCodec();
+  private Ontology ontology = ShopOntology.getInstance();
+  
   private HashMap<ComputerComponent, Integer> componentsForSale; // component, price
   private AID tickerAgent;
   private ArrayList<AID> buyers = new ArrayList<>();
@@ -32,10 +39,13 @@ public abstract class SupplierAgent extends Agent {
   private HashMap<AID, ComputerComponent> componentsApproved = new HashMap<>(); // List of the components order we said yes to
   private HashMap<AID, ComputerComponent> componentsConfirmed = new HashMap<>(); // List of the components and the agents that they are for
 
-  @Override
+  // This is overriden by the specific supplier implementations
   protected void setup() {}
-    
+  
   protected void register() {
+    getContentManager().registerLanguage(codec);
+    getContentManager().registerOntology(ontology);
+    
     // add this agent to the yellow pages
     DFAgentDescription dfd = new DFAgentDescription();
     dfd.setName(getAID());
@@ -50,6 +60,18 @@ public abstract class SupplierAgent extends Agent {
       e.printStackTrace();
     }
   }
+  
+  @Override
+  protected void takeDown() {
+    // Deregister from the yellow pages
+    try{
+      DFService.deregister(this);
+    }
+    catch(FIPAException e){
+      e.printStackTrace();
+    }
+  }
+  
   
   public class TickerWaiter extends CyclicBehaviour {
 

@@ -85,6 +85,7 @@ public class ManufactAgent extends Agent {
     }
   }
 
+  
   public class TickerWaiter extends CyclicBehaviour {
 
     //behaviour to wait for a new day
@@ -289,12 +290,10 @@ public class ManufactAgent extends Agent {
               
               // if the same combination AID + order is present in the ordersApproved, move it from approved to
               // confirmed
-//              System.out.println("\nordersApproved are: " + ordersApproved);
               int idxOrder = ordersApproved.get(makeOrder.getBuyer()).indexOf(makeOrder.getOrder());
               
               System.out.println("\nmakeOrder.getOrder(): " + makeOrder.getOrder());
               System.out.println("\nFirst order approved for that buyer: " + ordersApproved.get(makeOrder.getBuyer()).get(0));
-              System.out.println(ordersApproved.get(makeOrder.getBuyer()).get(0).equals(makeOrder.getOrder()));
               
               if (idxOrder != -1) {
                 // Runs if order is in list of orders we approved
@@ -315,9 +314,7 @@ public class ManufactAgent extends Agent {
                 
                 System.out.println("\nAdded to confirmed orders. List of confirmed orders at the end of CollectOrderRequests is: " + ordersConfirmed);
                 
-              }
-              System.out.println("\nRequest not accepted from buyer" + makeOrder.getBuyer()); 
-                
+              } 
             }
           }
         } catch (CodecException ce) {
