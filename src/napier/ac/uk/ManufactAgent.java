@@ -117,7 +117,8 @@ public class ManufactAgent extends Agent {
           myAgent.addBehaviour(cor);
           cyclicBehaviours.add(cor);
           
-          myAgent.addBehaviour(new AskIfCanBuy(myAgent));
+          // This should come only after the collect order request behaviours
+          myAgent.addBehaviour(new AskIfCanBuy(myAgent)); 
           myAgent.addBehaviour(new BuyComponentAction(myAgent));
           
           
@@ -285,7 +286,6 @@ public class ManufactAgent extends Agent {
             if (action instanceof MakeOrder) {
               MakeOrder makeOrder = (MakeOrder)action;
               
-              // TODO: if the order they are REQUESTING was in the ordersApproved, can sell it
               // TODO: the components of the orders added to ordersConfirmed should be bought in the next step
               
               // if the same combination AID + order is present in the ordersApproved, move it from approved to
@@ -380,6 +380,8 @@ public class ManufactAgent extends Agent {
 
     @Override
     public void action() {
+      // TODO: this behaviour throws an error because it executes before ordersConfirmed is populated
+      // TODO: this should run only after we add all requests to the confirmed order. Might achieve this with sequential behaviour
       // TODO: add logic to decide to which seller we want to send the message and change suppliers.get(0) to the chosen one
       // Prepare the Query-IF message. Asks the manufacturer to if they will accept the order
       ACLMessage msg = new ACLMessage(ACLMessage.QUERY_IF);
@@ -394,7 +396,8 @@ public class ManufactAgent extends Agent {
         // Lets take into consideration the orders of the first customer
         ArrayList<Order> firstCustOrders = ordersConfirmed.get(customers.get(0));
         
-        System.out.println("List of orderConfirmed is: " + ordersConfirmed.toString());
+        System.out.println("Ask the supplier if they have the component in stock. In AskIfCanBuy");
+        System.out.println("In AskIfCanBuy. Orders confirmed: " + ordersConfirmed);
         
         ownsComp.setComponent(firstCustOrders.get(0).getComputer().getCpu()); // Loop to ask about all components of an order
         

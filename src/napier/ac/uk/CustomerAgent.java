@@ -253,7 +253,8 @@ public class CustomerAgent extends Agent {
 
     @Override
     public void action() {
-      // TODO: should probably match on some ontology
+      // TODO: should probably match on some ontology o al limite the conversation id with 
+      // msg.setConversationId("book-trade");
       MessageTemplate mt = MessageTemplate.MatchSender(manufacturer);
       ACLMessage msg = myAgent.receive(mt);
       System.out.println("\nmsg received in MakeOrderAction is: " + msg);

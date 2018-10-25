@@ -16,7 +16,7 @@ import jade.lang.acl.ACLMessage;
 import jade.lang.acl.MessageTemplate;
 
 public class Ticker extends Agent {
-	public static final int NUM_DAYS = 2;
+	public static final int NUM_DAYS = 1;
 	@Override
 	protected void setup() {
 		//add this agent to the yellow pages
