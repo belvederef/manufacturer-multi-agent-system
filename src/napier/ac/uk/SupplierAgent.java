@@ -20,10 +20,8 @@ import jade.domain.FIPAAgentManagement.DFAgentDescription;
 import jade.domain.FIPAAgentManagement.ServiceDescription;
 import jade.lang.acl.ACLMessage;
 import jade.lang.acl.MessageTemplate;
-import napier.ac.uk_ontology.elements.Computer;
-import napier.ac.uk_ontology.elements.Order;
+import napier.ac.uk_ontology.elements.actions.BuyComponent;
 import napier.ac.uk_ontology.elements.computerComponents.ComputerComponent;
-import napier.ac.uk_ontology.elements.predicates.CanManufacture;
 import napier.ac.uk_ontology.elements.predicates.OwnsComponent;
 
 public abstract class SupplierAgent extends Agent {
@@ -73,9 +71,14 @@ public abstract class SupplierAgent extends Agent {
           myAgent.addBehaviour(new FindBuyers(myAgent));
           
           ArrayList<Behaviour> cyclicBehaviours = new ArrayList<>();
+          
           CyclicBehaviour os = new OffersServer(myAgent);
           myAgent.addBehaviour(os);
           cyclicBehaviours.add(os);
+          
+          CyclicBehaviour sb = new SellBehaviour(myAgent);
+          myAgent.addBehaviour(sb);
+          cyclicBehaviours.add(sb);
           
           myAgent.addBehaviour(new EndDayListener(myAgent, cyclicBehaviours));
         }
@@ -134,7 +137,7 @@ public abstract class SupplierAgent extends Agent {
           ContentElement ce = null;
           
           // Print out the message content in SL
-          System.out.println("Component message asked is: " + msg.getContent()); 
+          System.out.println("Component message asked by manufacturer is: " + msg.getContent()); 
 
           // Let JADE convert from String to Java objects
           // Output will be a ContentElement
@@ -169,7 +172,12 @@ public abstract class SupplierAgent extends Agent {
   }
   
   
-  private class SellBehaviour extends CyclicBehaviour{
+  private class SellBehaviour extends CyclicBehaviour {
+    
+    public SellBehaviour(Agent a) {
+      super(a);
+    }
+    
     @Override
     public void action() {
       //This behaviour should only respond to REQUEST messages
@@ -185,23 +193,15 @@ public abstract class SupplierAgent extends Agent {
           ce = getContentManager().extractContent(msg);
           if(ce instanceof Action) {
             Concept action = ((Action)ce).getAction();
-            if (action instanceof Sell) {
-              Sell order = (Sell)action;
-              Item it = order.getItem();
-              // Extract the CD name and print it to demonstrate use of the ontology
-              if(it instanceof CD){
-                CD cd = (CD)it;
-                //check if seller has it in stock
-                if(itemsForSale.containsKey(cd.getSerialNumber())) {
-                  System.out.println("Selling CD " + cd.getName());
-                }
-                else {
-                  System.out.println("You tried to order something out of stock!!!! Check first!");
-                }
-
+            if (action instanceof BuyComponent) {
+              BuyComponent orderedComponent = (BuyComponent) action;
+              ComputerComponent component = orderedComponent.getComponent();
+              
+              // We have unlimited components, no need to check the stock or remove from list
+              if(componentsForSale.containsKey(component)) {
+                System.out.println("\nSelling component" + component + " to " + orderedComponent.getBuyer());
               }
             }
-
           }
         }
 

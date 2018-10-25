@@ -116,7 +116,9 @@ public class ManufactAgent extends Agent {
           myAgent.addBehaviour(cor);
           cyclicBehaviours.add(cor);
           
-//          BuyComponents one shot
+          myAgent.addBehaviour(new AskIfCanBuy(myAgent));
+          myAgent.addBehaviour(new BuyComponentAction(myAgent));
+          
           
 
           myAgent.addBehaviour(new EndDayListener(myAgent, cyclicBehaviours));
