@@ -253,6 +253,7 @@ public class CustomerAgent extends Agent {
 
     @Override
     public void action() {
+      // TODO: should probably match on some ontology
       MessageTemplate mt = MessageTemplate.MatchSender(manufacturer);
       ACLMessage msg = myAgent.receive(mt);
       System.out.println(msg);

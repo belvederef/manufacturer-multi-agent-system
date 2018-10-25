@@ -26,8 +26,11 @@ import jade.lang.acl.MessageTemplate;
 import napier.ac.uk_ontology.ShopOntology;
 import napier.ac.uk_ontology.elements.Computer;
 import napier.ac.uk_ontology.elements.Order;
+import napier.ac.uk_ontology.elements.actions.BuyComponent;
 import napier.ac.uk_ontology.elements.actions.MakeOrder;
+import napier.ac.uk_ontology.elements.computerComponents.ComputerComponent;
 import napier.ac.uk_ontology.elements.predicates.CanManufacture;
+import napier.ac.uk_ontology.elements.predicates.OwnsComponent;
 
 // A manufacturer is both a buyer and a seller
 public class ManufactAgent extends Agent {
@@ -37,20 +40,15 @@ public class ManufactAgent extends Agent {
   private ArrayList<AID> suppliers = new ArrayList<>();
   private ArrayList<AID> customers = new ArrayList<>();
   
-  private HashMap<AID, Order> ordersApproved = new HashMap<>(); // List of the orders we said yes to
+  private HashMap<AID, ArrayList<Order>> ordersApproved = new HashMap<>(); // List of the orders we said yes to
   // Note: having an additional list prevents an agent to simply request us to complete an order. 
   // They can only ask, if we said yes then they could request us to complete the order.
+  private HashMap<AID, ArrayList<Order>> ordersConfirmed = new HashMap<>(); // List of the orders and the agents that they are for
   
-  private HashMap<AID, Order> ordersConfirmed = new HashMap<>(); // List of the orders and the agents that they are for
-  private ArrayList<Object> componentsAvailable = new ArrayList<>(); // components available to build computers
-  
-  
-  private ArrayList<String> componentsToBuy = new ArrayList<>(); // components to buy for orders
-  private HashMap<String, ArrayList<Order>> currentOrders = new HashMap<>();
-  private HashMap<AID,ArrayList<Computer>> computersAvailable = new HashMap<>(); // List of completed computers
+  private ArrayList<ComputerComponent> componentsOrdered = new ArrayList<>(); // The orders that were accepted so far
+  private ArrayList<ComputerComponent> componentsAvailable = new ArrayList<>(); // components available to build computers
   
   private AID tickerAgent;
-  private int numQueriesSent;
   
   @Override
   protected void setup() {
@@ -108,11 +106,17 @@ public class ManufactAgent extends Agent {
           myAgent.addBehaviour(new FindCustomers(myAgent));
           
           // Add the cyclic behavior to a list that will remove all of them at the end of the day
+          ArrayList<Behaviour> cyclicBehaviours = new ArrayList<>();
+          
           CyclicBehaviour orb = new OrderReplyBehaviour(myAgent);
           myAgent.addBehaviour(orb);
-          
-          ArrayList<Behaviour> cyclicBehaviours = new ArrayList<>();
           cyclicBehaviours.add(orb);
+          
+          CyclicBehaviour cor = new CollectOrderRequests(myAgent);
+          myAgent.addBehaviour(cor);
+          cyclicBehaviours.add(cor);
+          
+//          BuyComponents one shot
           
 
           myAgent.addBehaviour(new EndDayListener(myAgent, cyclicBehaviours));
@@ -219,7 +223,17 @@ public class ManufactAgent extends Agent {
       			ACLMessage reply = msg.createReply();
       			if(true) { 
       			  // TODO: build logic for accepting. e.g. if the supplier has the components in stock or we do
-      			  ordersApproved.put(msg.getSender(), order); // Add to list of orders that we said yes to, but not yet confirmed
+      			  
+      			  // Add to list of orders that we said yes to, but not yet confirmed
+      			  if (ordersApproved.containsKey(msg.getSender())) {
+      			    // If customer has already made an order, add to that list
+      			    ordersApproved.get(msg.getSender()).add(order);
+      			  } else {
+      			    ArrayList<Order> orderList = new ArrayList<>();
+      			    orderList.add(order);
+      			    ordersApproved.put(msg.getSender(), orderList);
+      			  }
+      			  
       				reply.setPerformative(ACLMessage.CONFIRM);
       				reply.setContent("Accepted");
       				
@@ -267,8 +281,37 @@ public class ManufactAgent extends Agent {
             Concept action = ((Action)ce).getAction();
             if (action instanceof MakeOrder) {
               MakeOrder makeOrder = (MakeOrder)action;
-              // TODO: the components of the orders added to ordersConfirmed should be bought in the next step 
-              ordersConfirmed.put(makeOrder.getBuyer(), makeOrder.getOrder());
+              
+              // TODO: if the order they are REQUESTING was in the ordersApproved, can sell it
+              // TODO: the components of the orders added to ordersConfirmed should be bought in the next step
+              
+              // if the same combination AID + order is present in the ordersApproved, move it from approved to
+              // confirmed
+              try {
+                int idxOrder = ordersApproved.get(makeOrder.getBuyer()).indexOf(makeOrder.getOrder());
+                
+                if (idxOrder != -1) {
+                  // Runs if order is in list of orders we approved
+                  Order orderToMove = ordersApproved.get(makeOrder.getBuyer()).get(idxOrder);
+                  
+                  // Removed from approved list
+                  ordersApproved.get(makeOrder.getBuyer()).remove(idxOrder);
+                  
+                  // Add to confirmed list
+                  if (ordersConfirmed.containsKey(makeOrder.getBuyer())) {
+                    // If customer has already made an order, add to that list
+                    ordersConfirmed.get(makeOrder.getBuyer()).add(orderToMove);
+                  } else {
+                    ArrayList<Order> orderListConf = new ArrayList<>();
+                    orderListConf.add(orderToMove);
+                    ordersConfirmed.put(makeOrder.getBuyer(), orderListConf);
+                  }
+                }
+                System.out.println("\nRequest accepted from buyer" + makeOrder.getBuyer()); 
+                
+              } catch (Exception e) {
+                System.out.println("You should ask nicely first! Order not approved");
+              }
             }
           }
         } catch (CodecException ce) {
@@ -283,6 +326,154 @@ public class ManufactAgent extends Agent {
     }
   }
   
+  
+//  private class BuyComponents extends OneShotBehaviour{
+//    // This behaviour buys the components needed to make the orders that we have on the list of confirmed orders
+//    public BuyComponents(Agent a) {
+//      super(a);
+//    }
+//    
+//    @Override
+//    public void action() {
+//      // This behaviour should only respond to REQUEST messages
+//      MessageTemplate mt = MessageTemplate.MatchPerformative(ACLMessage.REQUEST); 
+//      ACLMessage msg = receive(mt);
+//      if(msg != null){
+//        try {
+//          ContentElement ce = null;
+//          System.out.println(msg.getContent());
+//
+//          // Let JADE convert from String to Java objects
+//          ce = getContentManager().extractContent(msg);
+//          if(ce instanceof Action) {
+//            Concept action = ((Action)ce).getAction();
+//            if (action instanceof MakeOrder) {
+//              MakeOrder makeOrder = (MakeOrder) action;
+//              // TODO: the components of the orders added to ordersConfirmed should be bought in the next step 
+//              ordersConfirmed.put(makeOrder.getBuyer(), makeOrder.getOrder());
+//            }
+//          }
+//        } catch (CodecException ce) {
+//          ce.printStackTrace();
+//        } catch (OntologyException oe) {
+//          oe.printStackTrace();
+//        }
+//      }
+//      else{
+//        block();
+//      }
+//    }
+//  }
+  
+  
+  public class AskIfCanBuy extends OneShotBehaviour {
+
+    public AskIfCanBuy(Agent a) {
+      super(a);
+    }
+
+    @Override
+    public void action() {
+      // TODO: add logic to decide to which seller we want to send the message and change suppliers.get(0) to the chosen one
+      // Prepare the Query-IF message. Asks the manufacturer to if they will accept the order
+      ACLMessage msg = new ACLMessage(ACLMessage.QUERY_IF);
+      msg.setLanguage(codec.getName());
+      msg.setOntology(ontology.getName()); 
+      msg.addReceiver(suppliers.get(0));
+      
+      OwnsComponent ownsComp = new OwnsComponent();
+      ownsComp.setOwner(suppliers.get(0));
+      
+      // Lets take into consideration the orders of the first customer
+      ArrayList<Order> firstCustOrders = ordersConfirmed.get(customers.get(0));
+      
+      ownsComp.setComponent(firstCustOrders.get(0).getComputer().getCpu()); // Loop to ask about all components of an order
+      
+      try {
+        // Let JADE convert from Java objects to string
+        getContentManager().fillContent(msg, ownsComp);
+        send(msg);
+       }
+       catch (CodecException ce) {
+        ce.printStackTrace();
+       }
+       catch (OntologyException oe) {
+        oe.printStackTrace();
+       } 
+    }
+  }
+
+  
+  public class BuyComponentAction extends Behaviour {
+    // Make order for a component if the manufacturer said they accepted it
+    // Otherwise proceed to end the day
+    private Boolean replyReceived = false;
+    
+    public BuyComponentAction(Agent a) {
+      super(a);
+    }
+
+    @Override
+    public void action() {
+      // TODO: should probably match on some ontology
+      MessageTemplate mt = MessageTemplate.MatchSender(suppliers.get(0));
+      ACLMessage msg = myAgent.receive(mt);
+      System.out.println(msg);
+      if(msg != null) {
+        replyReceived = true;
+        if(msg.getPerformative() == ACLMessage.CONFIRM) {
+          // The order was accepted
+          System.out.println("\nThe supplier accepted the component order! YAY! Now making request...");
+          
+          // Prepare the action request message
+          ACLMessage orderMsg = new ACLMessage(ACLMessage.REQUEST);
+          orderMsg.setLanguage(codec.getName());
+          orderMsg.setOntology(ontology.getName()); 
+          orderMsg.addReceiver(msg.getSender());
+          
+
+          
+          // Lets take into consideration the orders of the first customer
+          ArrayList<Order> firstCustOrders = ordersConfirmed.get(customers.get(0));
+          
+          // Prepare the content. 
+          BuyComponent buyComponent = new BuyComponent();
+          buyComponent.setBuyer(myAgent.getAID());
+          buyComponent.setComponent(firstCustOrders.get(0).getComputer().getCpu());
+          
+          Action request = new Action();
+          request.setAction(buyComponent);
+          request.setActor(suppliers.get(0));
+          try {
+           getContentManager().fillContent(orderMsg, request); //send the wrapper object
+           send(orderMsg);
+           // Add this order to the list of ordered components we are awaiting to receive
+           componentsOrdered.add(firstCustOrders.get(0).getComputer().getCpu()); 
+          }
+          catch (CodecException ce) {
+           ce.printStackTrace();
+          }
+          catch (OntologyException oe) {
+           oe.printStackTrace();
+          } 
+        }
+      } else {
+        block();
+      }
+    }
+
+    @Override
+    public boolean done() {
+      return replyReceived;
+    }
+
+    @Override
+    public int onEnd() {
+      // Do something on end
+      return 0;
+    }
+
+  }
   
   
   

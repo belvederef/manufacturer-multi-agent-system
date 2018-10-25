@@ -9,8 +9,8 @@ public class Desktop extends Computer {
   private MotherboardDesktop deskMotherboard;
   
   public Desktop() {
-	this.deskCpu = new CpuDesktop();
-	this.deskMotherboard = new MotherboardDesktop();
+  	this.deskCpu = new CpuDesktop();
+  	this.deskMotherboard = new MotherboardDesktop();
   }
   
   @Slot(mandatory = true)
