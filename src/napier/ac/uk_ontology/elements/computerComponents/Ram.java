@@ -1,5 +1,7 @@
 package napier.ac.uk_ontology.elements.computerComponents;
 
+import java.util.Objects;
+
 import jade.content.onto.annotations.Slot;
 
 public class Ram extends ComputerComponent {
@@ -17,4 +19,21 @@ public class Ram extends ComputerComponent {
 	public String toString() {
 		return this.capacity;
 	}
+	
+	 @Override
+	  public boolean equals(Object other) {
+	      if (!(other instanceof Ram)) {
+	          return false;
+	      }
+
+	      Ram that = (Ram) other;
+
+	      // Custom equality check here.
+	      return this.capacity.equals(that.capacity);
+	  }
+	  
+	  @Override
+	  public int hashCode() {
+	    return Objects.hash(this.capacity);
+	  }
 }

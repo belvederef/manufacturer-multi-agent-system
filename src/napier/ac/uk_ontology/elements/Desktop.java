@@ -5,27 +5,27 @@ import napier.ac.uk_ontology.elements.computerComponents.CpuDesktop;
 import napier.ac.uk_ontology.elements.computerComponents.MotherboardDesktop;
 
 public class Desktop extends Computer {
-  private CpuDesktop deskCpu;
-  private MotherboardDesktop deskMotherboard;
+  private CpuDesktop cpu;
+  private MotherboardDesktop motherboard;
   
   public Desktop() {
-  	this.deskCpu = new CpuDesktop();
-  	this.deskMotherboard = new MotherboardDesktop();
+  	this.cpu = new CpuDesktop();
+  	this.motherboard = new MotherboardDesktop();
   }
   
   @Slot(mandatory = true)
-  public CpuDesktop getDeskCpu() {
-    return deskCpu;
+  public CpuDesktop getCpu() {
+    return cpu;
   }
-  public void setDeskCpu(CpuDesktop deskCpu) {
-    this.deskCpu = deskCpu;
+  public void setCpu(CpuDesktop deskCpu) {
+    this.cpu = deskCpu;
   }
   @Slot(mandatory = true)
-  public MotherboardDesktop getDeskMotherboard() {
-    return deskMotherboard;
+  public MotherboardDesktop getMotherboard() {
+    return motherboard;
   }
-  public void setDeskMotherboard(MotherboardDesktop deskMotherboard) {
-    this.deskMotherboard = deskMotherboard;
+  public void setMotherboard(MotherboardDesktop deskMotherboard) {
+    this.motherboard = deskMotherboard;
   }
   
   @Override
@@ -34,6 +34,6 @@ public class Desktop extends Computer {
 		String.format("\n\t"
 	        + "cpu: %s, \n\t"
 	        + "motherboard: %s, \n\t)",
-	        deskCpu, deskMotherboard);
+	        cpu, motherboard);
   }
 }

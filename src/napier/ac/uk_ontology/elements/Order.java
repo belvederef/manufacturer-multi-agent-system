@@ -1,5 +1,7 @@
 package napier.ac.uk_ontology.elements;
 
+import java.util.Objects;
+
 import jade.content.Concept;
 import jade.content.onto.annotations.Slot;
 
@@ -43,5 +45,25 @@ public class Order implements Concept {
     String compString = computer.toString();
     return String.format("(\n computer: %s, \n quantity: %s, \n price: %s, \n dueInDays: %s)",
         compString, quantity, price, dueInDays);
+  }
+  
+  @Override
+  public boolean equals(Object other) {
+      if (!(other instanceof Order)) {
+          return false;
+      }
+
+      Order that = (Order) other;
+
+      // Custom equality check here.
+      return this.computer.equals(that.computer)
+          && this.quantity == that.quantity
+          && this.price == that.price
+          && this.dueInDays == that.dueInDays;
+  }
+  
+  @Override
+  public int hashCode() {
+    return Objects.hash(computer, quantity, price, dueInDays);
   }
 }

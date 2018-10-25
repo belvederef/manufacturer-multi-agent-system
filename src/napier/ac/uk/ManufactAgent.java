@@ -275,7 +275,7 @@ public class ManufactAgent extends Agent {
       if(msg != null){
         try {
           ContentElement ce = null;
-          System.out.println(msg.getContent());
+          System.out.println("\nmessage received in CollectOrderRequests is: " + msg.getContent());
 
           // Let JADE convert from String to Java objects
           ce = getContentManager().extractContent(msg);
@@ -289,37 +289,44 @@ public class ManufactAgent extends Agent {
               
               // if the same combination AID + order is present in the ordersApproved, move it from approved to
               // confirmed
-              try {
-                int idxOrder = ordersApproved.get(makeOrder.getBuyer()).indexOf(makeOrder.getOrder());
+//              System.out.println("\nordersApproved are: " + ordersApproved);
+              int idxOrder = ordersApproved.get(makeOrder.getBuyer()).indexOf(makeOrder.getOrder());
+              
+              System.out.println("\nmakeOrder.getOrder(): " + makeOrder.getOrder());
+              System.out.println("\nFirst order approved for that buyer: " + ordersApproved.get(makeOrder.getBuyer()).get(0));
+              System.out.println(ordersApproved.get(makeOrder.getBuyer()).get(0).equals(makeOrder.getOrder()));
+              
+              if (idxOrder != -1) {
+                // Runs if order is in list of orders we approved
+                Order orderToMove = ordersApproved.get(makeOrder.getBuyer()).get(idxOrder);
                 
-                if (idxOrder != -1) {
-                  // Runs if order is in list of orders we approved
-                  Order orderToMove = ordersApproved.get(makeOrder.getBuyer()).get(idxOrder);
-                  
-                  // Removed from approved list
-                  ordersApproved.get(makeOrder.getBuyer()).remove(idxOrder);
-                  
-                  // Add to confirmed list
-                  if (ordersConfirmed.containsKey(makeOrder.getBuyer())) {
-                    // If customer has already made an order, add to that list
-                    ordersConfirmed.get(makeOrder.getBuyer()).add(orderToMove);
-                  } else {
-                    ArrayList<Order> orderListConf = new ArrayList<>();
-                    orderListConf.add(orderToMove);
-                    ordersConfirmed.put(makeOrder.getBuyer(), orderListConf);
-                  }
+                // Removed from approved list
+                ordersApproved.get(makeOrder.getBuyer()).remove(idxOrder);
+                
+                // Add to confirmed list
+                if (ordersConfirmed.containsKey(makeOrder.getBuyer())) {
+                  // If customer has already made an order, add to that list
+                  ordersConfirmed.get(makeOrder.getBuyer()).add(orderToMove);
+                } else {
+                  ArrayList<Order> orderListConf = new ArrayList<>();
+                  orderListConf.add(orderToMove);
+                  ordersConfirmed.put(makeOrder.getBuyer(), orderListConf);
                 }
-                System.out.println("\nRequest accepted from buyer" + makeOrder.getBuyer()); 
                 
-              } catch (Exception e) {
-                System.out.println("You should ask nicely first! Order not approved");
+                System.out.println("\nAdded to confirmed orders. List of confirmed orders at the end of CollectOrderRequests is: " + ordersConfirmed);
+                
               }
+              System.out.println("\nRequest not accepted from buyer" + makeOrder.getBuyer()); 
+                
             }
           }
         } catch (CodecException ce) {
           ce.printStackTrace();
         } catch (OntologyException oe) {
           oe.printStackTrace();
+        } catch (Exception e) {
+          e.printStackTrace();
+          System.out.println("You should ask nicely first! Order not approved");
         }
       }
       else{
@@ -386,12 +393,14 @@ public class ManufactAgent extends Agent {
       OwnsComponent ownsComp = new OwnsComponent();
       ownsComp.setOwner(suppliers.get(0));
       
-      // Lets take into consideration the orders of the first customer
-      ArrayList<Order> firstCustOrders = ordersConfirmed.get(customers.get(0));
-      
-      ownsComp.setComponent(firstCustOrders.get(0).getComputer().getCpu()); // Loop to ask about all components of an order
-      
       try {
+        // Lets take into consideration the orders of the first customer
+        ArrayList<Order> firstCustOrders = ordersConfirmed.get(customers.get(0));
+        
+        System.out.println("List of orderConfirmed is: " + ordersConfirmed.toString());
+        
+        ownsComp.setComponent(firstCustOrders.get(0).getComputer().getCpu()); // Loop to ask about all components of an order
+        
         // Let JADE convert from Java objects to string
         getContentManager().fillContent(msg, ownsComp);
         send(msg);
@@ -401,7 +410,9 @@ public class ManufactAgent extends Agent {
        }
        catch (OntologyException oe) {
         oe.printStackTrace();
-       } 
+       } catch (Exception e) {
+         e.printStackTrace();
+       }
     }
   }
 
@@ -420,7 +431,7 @@ public class ManufactAgent extends Agent {
       // TODO: should probably match on some ontology
       MessageTemplate mt = MessageTemplate.MatchSender(suppliers.get(0));
       ACLMessage msg = myAgent.receive(mt);
-      System.out.println(msg);
+      System.out.println("\nmessage received in BuyComponentAction is: " + msg);
       if(msg != null) {
         replyReceived = true;
         if(msg.getPerformative() == ACLMessage.CONFIRM) {

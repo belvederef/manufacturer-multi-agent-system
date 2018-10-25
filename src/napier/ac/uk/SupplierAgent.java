@@ -186,7 +186,7 @@ public abstract class SupplierAgent extends Agent {
       if(msg != null){
         try {
           ContentElement ce = null;
-          System.out.println(msg.getContent()); //print out the message content in SL
+          System.out.println("\nmsg received in SellBehaviour is: " + msg.getContent()); //print out the message content in SL
 
           // Let JADE convert from String to Java objects
           // Output will be a ContentElement

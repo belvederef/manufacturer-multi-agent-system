@@ -1,5 +1,7 @@
 package napier.ac.uk_ontology.elements;
 
+import java.util.Objects;
+
 import jade.content.Concept;
 import jade.content.onto.annotations.Slot;
 import napier.ac.uk_ontology.elements.computerComponents.Cpu;
@@ -75,5 +77,26 @@ public class Computer implements Concept {
         + "hardDrive: %s, \n\t"
         + "os: %s,",
         ram, hardDrive, os);
+  }
+  
+  @Override
+  public boolean equals(Object other) {
+      if (!(other instanceof Computer)) {
+          return false;
+      }
+
+      Computer that = (Computer) other;
+
+      // Custom equality check here.
+      return this.ram.equals(that.ram)
+          && this.hardDrive.equals(that.hardDrive)
+          && this.os.equals(that.os)
+          && this.cpu.equals(that.cpu)
+          && this.motherboard.equals(that.motherboard);
+  }
+  
+  @Override
+  public int hashCode() {
+    return Objects.hash(ram, hardDrive, os, cpu, motherboard, screen);
   }
 }

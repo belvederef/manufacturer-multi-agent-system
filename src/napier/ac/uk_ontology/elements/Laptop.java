@@ -6,36 +6,36 @@ import napier.ac.uk_ontology.elements.computerComponents.MotherboardLaptop;
 import napier.ac.uk_ontology.elements.computerComponents.Screen;
 
 public class Laptop extends Computer {
-  private CpuLaptop lapCpu;
-  private MotherboardLaptop lapMotherboard;
-  private Screen lapScreen;
+  private CpuLaptop cpu;
+  private MotherboardLaptop motherboard;
+  private Screen screen;
   
   public Laptop() {
-	this.lapCpu = new CpuLaptop();
-	this.lapMotherboard = new MotherboardLaptop();
-	this.lapScreen = new Screen();
+	this.cpu = new CpuLaptop();
+	this.motherboard = new MotherboardLaptop();
+	this.screen = new Screen();
   }
   
   @Slot(mandatory = true)
-  public CpuLaptop getLapCpu() {
-    return lapCpu;
+  public CpuLaptop getCpu() {
+    return cpu;
   }
-  public void setLapCpu(CpuLaptop lapCpu) {
-    this.lapCpu = lapCpu;
-  }
-  @Slot(mandatory = true)
-  public MotherboardLaptop getLapMotherboard() {
-    return lapMotherboard;
-  }
-  public void setLapMotherboard(MotherboardLaptop lapMotherboard) {
-    this.lapMotherboard = lapMotherboard;
+  public void setCpu(CpuLaptop lapCpu) {
+    this.cpu = lapCpu;
   }
   @Slot(mandatory = true)
-  public Screen getLapScreen() {
-    return lapScreen;
+  public MotherboardLaptop getMotherboard() {
+    return motherboard;
   }
-  public void setLapScreen(Screen lapScreen) {
-    this.lapScreen = lapScreen;
+  public void setMotherboard(MotherboardLaptop lapMotherboard) {
+    this.motherboard = lapMotherboard;
+  }
+  @Slot(mandatory = true)
+  public Screen getScreen() {
+    return screen;
+  }
+  public void setScreen(Screen lapScreen) {
+    this.screen = lapScreen;
   }
   
   @Override
@@ -45,6 +45,6 @@ public class Laptop extends Computer {
 	        + "cpu: %s, \n\t"
 	        + "motherboard: %s, \n\t"
 	        + "screen: %s, \n\t)",
-	        lapCpu, lapMotherboard, lapScreen);
+	        cpu, motherboard, screen);
   }
 }
