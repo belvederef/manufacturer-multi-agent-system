@@ -40,6 +40,7 @@ public abstract class SupplierAgent extends Agent {
   private HashMap<AID, ComputerComponent> componentsConfirmed = new HashMap<>(); // List of the components and the agents that they are for
 
   // This is overriden by the specific supplier implementations
+  private int deliveryDays; // number of days for delivery
   protected void setup() {}
   
   protected void register() {
@@ -125,11 +126,11 @@ public abstract class SupplierAgent extends Agent {
       public void action() {
         DFAgentDescription buyerTemplate = new DFAgentDescription();
         ServiceDescription sd = new ServiceDescription();
-        sd.setType("buyer");
+        sd.setType("manufacturer");
         buyerTemplate.addServices(sd);
         try{
           buyers.clear();
-          DFAgentDescription[] agentsType  = DFService.search(myAgent,buyerTemplate); 
+          DFAgentDescription[] agentsType  = DFService.search(myAgent, buyerTemplate); 
           for(int i=0; i<agentsType.length; i++){
             buyers.add(agentsType[i].getName()); // this is the AID
           }
@@ -154,6 +155,7 @@ public abstract class SupplierAgent extends Agent {
     public void action() {
       MessageTemplate mt = MessageTemplate.MatchPerformative(ACLMessage.QUERY_IF);
       ACLMessage msg = myAgent.receive(mt);
+      System.out.println("In supplier offerserver. msg: " + msg);
       if(msg != null) {
         try {
           ContentElement ce = null;
@@ -169,7 +171,7 @@ public abstract class SupplierAgent extends Agent {
             ComputerComponent component = (ComputerComponent) ownsComponent.getComponent();
             
             // Extract the component print it to demonstrate use of the ontology
-            System.out.println("The computer ordered is " + component.toString());
+            System.out.println("The component asked to supplier is " + component.toString());
             
             
             // Accept all questions, we have unlimited stock
@@ -220,6 +222,8 @@ public abstract class SupplierAgent extends Agent {
               ComputerComponent component = orderedComponent.getComponent();
               
               // We have unlimited components, no need to check the stock or remove from list
+              // TODO: componentsForSale IS NULL!!!
+              System.out.println("componentsForSale: " + componentsForSale);
               if(componentsForSale.containsKey(component)) {
                 System.out.println("\nSelling component" + component + " to " + orderedComponent.getBuyer());
               }
@@ -259,6 +263,8 @@ public abstract class SupplierAgent extends Agent {
     public void action() {
       MessageTemplate mt = MessageTemplate.MatchContent("done");
       ACLMessage msg = myAgent.receive(mt);
+      System.out.println("GETTING MESSAGE DONE FROM: " + msg);
+      System.out.println("buyers.size(): " + buyers.size());
       if(msg != null) {
         buyersFinished++;
       }
@@ -266,7 +272,7 @@ public abstract class SupplierAgent extends Agent {
         block();
       }
       if(buyersFinished == buyers.size()) {
-        //we are finished
+        // We are finished
         ACLMessage tick = new ACLMessage(ACLMessage.INFORM);
         tick.setContent("done");
         tick.addReceiver(tickerAgent);

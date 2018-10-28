@@ -49,6 +49,7 @@ public class ManufactAgent extends Agent {
   private ArrayList<ComputerComponent> componentsAvailable = new ArrayList<>(); // components available to build computers
   
   private AID tickerAgent;
+  private int askIfCanBuyCount = 0;
   
   @Override
   protected void setup() {
@@ -117,8 +118,15 @@ public class ManufactAgent extends Agent {
           myAgent.addBehaviour(cor);
           cyclicBehaviours.add(cor);
           
-          // This should come only after the collect order request behaviours
-          myAgent.addBehaviour(new AskIfCanBuy(myAgent)); 
+          CyclicBehaviour aicb = new AskIfCanBuy(myAgent);
+          myAgent.addBehaviour(aicb);
+          cyclicBehaviours.add(aicb);
+          
+          
+          // This should come only after the collect order request behaviours. Note on this,
+          // the manufacturer should be asynchronous. It could receive orders whenever and they might
+          // not follow the synchronous behavious the other agents may have
+//          myAgent.addBehaviour(new AskIfCanBuy(myAgent)); 
           myAgent.addBehaviour(new BuyComponentAction(myAgent));
           
           
@@ -311,7 +319,7 @@ public class ManufactAgent extends Agent {
                   orderListConf.add(orderToMove);
                   ordersConfirmed.put(makeOrder.getBuyer(), orderListConf);
                 }
-                
+                askIfCanBuyCount++;
                 System.out.println("\nAdded to confirmed orders. List of confirmed orders at the end of CollectOrderRequests is: " + ordersConfirmed);
                 
               } 
@@ -372,7 +380,7 @@ public class ManufactAgent extends Agent {
 //  }
   
   
-  public class AskIfCanBuy extends OneShotBehaviour {
+  public class AskIfCanBuy extends CyclicBehaviour {
 
     public AskIfCanBuy(Agent a) {
       super(a);
@@ -382,37 +390,55 @@ public class ManufactAgent extends Agent {
     public void action() {
       // TODO: this behaviour throws an error because it executes before ordersConfirmed is populated
       // TODO: this should run only after we add all requests to the confirmed order. Might achieve this with sequential behaviour
-      // TODO: add logic to decide to which seller we want to send the message and change suppliers.get(0) to the chosen one
-      // Prepare the Query-IF message. Asks the manufacturer to if they will accept the order
-      ACLMessage msg = new ACLMessage(ACLMessage.QUERY_IF);
-      msg.setLanguage(codec.getName());
-      msg.setOntology(ontology.getName()); 
-      msg.addReceiver(suppliers.get(0));
+      // TODO: add logic to decide to which seller we want to send the message to and change suppliers.get(0) to the chosen one
       
-      OwnsComponent ownsComp = new OwnsComponent();
-      ownsComp.setOwner(suppliers.get(0));
+      // Prepare the Query-IF message. Asks the supplier if they will accept the order
       
-      try {
-        // Lets take into consideration the orders of the first customer
-        ArrayList<Order> firstCustOrders = ordersConfirmed.get(customers.get(0));
+      // this should only run if something along the lines of this happens: 
+      // for each of the components that I need, if I didnt ask for that component yet or if
+      // my question did not get accepted, keep asking
+      System.out.println("askIfCanBuyCount: " + askIfCanBuyCount);
+      if (askIfCanBuyCount > 0) {
+        ACLMessage msg = new ACLMessage(ACLMessage.QUERY_IF);
+        msg.setLanguage(codec.getName());
+        msg.setOntology(ontology.getName()); 
+        msg.addReceiver(suppliers.get(0));
         
-        System.out.println("Ask the supplier if they have the component in stock. In AskIfCanBuy");
-        System.out.println("In AskIfCanBuy. Orders confirmed: " + ordersConfirmed);
+        OwnsComponent ownsComp = new OwnsComponent();
+        ownsComp.setOwner(suppliers.get(0));
+        if (ordersConfirmed.isEmpty()) {
+          block();
+          return;  
+        }
         
-        ownsComp.setComponent(firstCustOrders.get(0).getComputer().getCpu()); // Loop to ask about all components of an order
+        try {
+          // TODO: NOTE the null exception error will go once I change stuff like customers.get(0) with 
+          // actual implementation. remove if checks when that happens
+          // Lets take into consideration the orders of the first customer
+          ArrayList<Order> firstCustOrders = ordersConfirmed.get(customers.get(0));
+          
+          System.out.println("Ask the supplier if they have the component in stock. In AskIfCanBuy");
+          System.out.println("In AskIfCanBuy. firstCustOrders: " + firstCustOrders);
+          
+          if (firstCustOrders == null || firstCustOrders.isEmpty()) {
+            block(); 
+            return;
+          }
+          ownsComp.setComponent(firstCustOrders.get(0).getComputer().getCpu()); // Loop to ask about all components of an order
+          
+          // Let JADE convert from Java objects to string
+          getContentManager().fillContent(msg, ownsComp);
+          send(msg);
+          askIfCanBuyCount--;
         
-        // Let JADE convert from Java objects to string
-        getContentManager().fillContent(msg, ownsComp);
-        send(msg);
-       }
-       catch (CodecException ce) {
-        ce.printStackTrace();
-       }
-       catch (OntologyException oe) {
-        oe.printStackTrace();
-       } catch (Exception e) {
-         e.printStackTrace();
-       }
+         } catch (CodecException ce) {
+          ce.printStackTrace();
+         } catch (OntologyException oe) {
+          oe.printStackTrace();
+         } catch (Exception e) {
+           e.printStackTrace();
+         }
+      }
     }
   }
 
@@ -438,30 +464,30 @@ public class ManufactAgent extends Agent {
           // The order was accepted
           System.out.println("\nThe supplier accepted the component order! YAY! Now making request...");
           
-          // Prepare the action request message
-          ACLMessage orderMsg = new ACLMessage(ACLMessage.REQUEST);
-          orderMsg.setLanguage(codec.getName());
-          orderMsg.setOntology(ontology.getName()); 
-          orderMsg.addReceiver(msg.getSender());
-          
-
-          
-          // Lets take into consideration the orders of the first customer
-          ArrayList<Order> firstCustOrders = ordersConfirmed.get(customers.get(0));
-          
-          // Prepare the content. 
-          BuyComponent buyComponent = new BuyComponent();
-          buyComponent.setBuyer(myAgent.getAID());
-          buyComponent.setComponent(firstCustOrders.get(0).getComputer().getCpu());
-          
-          Action request = new Action();
-          request.setAction(buyComponent);
-          request.setActor(suppliers.get(0));
           try {
-           getContentManager().fillContent(orderMsg, request); //send the wrapper object
-           send(orderMsg);
-           // Add this order to the list of ordered components we are awaiting to receive
-           componentsOrdered.add(firstCustOrders.get(0).getComputer().getCpu()); 
+            // Prepare the action request message
+            ACLMessage orderMsg = new ACLMessage(ACLMessage.REQUEST);
+            orderMsg.setLanguage(codec.getName());
+            orderMsg.setOntology(ontology.getName()); 
+            orderMsg.addReceiver(msg.getSender());
+            
+  
+            // Lets take into consideration the orders of the first customer
+            ArrayList<Order> firstCustOrders = ordersConfirmed.get(customers.get(0));
+            
+            // Prepare the content. 
+            BuyComponent buyComponent = new BuyComponent();
+            buyComponent.setBuyer(myAgent.getAID());
+            buyComponent.setComponent(firstCustOrders.get(0).getComputer().getCpu());
+            
+            Action request = new Action();
+            request.setAction(buyComponent);
+            request.setActor(suppliers.get(0));
+  
+             getContentManager().fillContent(orderMsg, request); //send the wrapper object
+             send(orderMsg);
+             // Add this order to the list of ordered components that we are awaiting to receive
+             componentsOrdered.add(firstCustOrders.get(0).getComputer().getCpu()); 
           }
           catch (CodecException ce) {
            ce.printStackTrace();
