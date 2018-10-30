@@ -29,6 +29,8 @@ import napier.ac.uk_ontology.elements.computerComponents.ComputerComponent;
 import napier.ac.uk_ontology.elements.predicates.OwnsComponent;
 
 public abstract class SupplierAgent extends Agent {
+  private static final long serialVersionUID = 1L;
+  
   private Codec codec = new SLCodec();
   private Ontology ontology = ShopOntology.getInstance();
 
@@ -76,6 +78,7 @@ public abstract class SupplierAgent extends Agent {
   }
 
   public class TickerWaiter extends CyclicBehaviour {
+    private static final long serialVersionUID = 1L;
 
     // behaviour to wait for a new day
     public TickerWaiter(Agent a) {
@@ -115,6 +118,7 @@ public abstract class SupplierAgent extends Agent {
     }
 
     public class FindBuyers extends OneShotBehaviour {
+      private static final long serialVersionUID = 1L;
 
       public FindBuyers(Agent a) {
         super(a);
@@ -143,6 +147,7 @@ public abstract class SupplierAgent extends Agent {
   }
 
   public class OffersServer extends CyclicBehaviour {
+    private static final long serialVersionUID = 1L;
 
     public OffersServer(Agent a) {
       super(a);
@@ -176,7 +181,7 @@ public abstract class SupplierAgent extends Agent {
                                                                 // not yet confirmed
             reply.setPerformative(ACLMessage.CONFIRM);
 
-            System.out.println("\nSending response to the manufacturer. We own the component.");
+            System.out.println("\nSending response to the manufacturer. We own the component. reply: " + reply);
             myAgent.send(reply);
           }
         } catch (CodecException ce) {
@@ -191,6 +196,7 @@ public abstract class SupplierAgent extends Agent {
   }
 
   private class SellBehaviour extends CyclicBehaviour {
+    private static final long serialVersionUID = 1L;
 
     public SellBehaviour(Agent a) {
       super(a);
@@ -242,6 +248,8 @@ public abstract class SupplierAgent extends Agent {
   }
 
   public class EndDayListener extends CyclicBehaviour {
+    private static final long serialVersionUID = 1L;
+    
     private int buyersFinished = 0;
     private List<Behaviour> toRemove;
 
@@ -257,7 +265,7 @@ public abstract class SupplierAgent extends Agent {
       System.out.println("buyers.size(): " + buyers.size());
       if (msg != null) {
         buyersFinished++;
-        System.out.println("buyersFinished++;");
+        System.out.println("buyersFinished++: " + buyersFinished);
       } else {
         block();
       }

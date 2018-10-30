@@ -14,6 +14,8 @@ import napier.ac.uk_ontology.elements.computerComponents.Ram;
 import napier.ac.uk_ontology.elements.computerComponents.Screen;
 
 public class SupplierSlowAgent extends SupplierAgent {
+  private static final long serialVersionUID = 1L;
+  
 //  private HashMap<String,Integer> componentsForSale = new HashMap<>(); // component, price
   private HashMap<ComputerComponent, Integer> componentsForSale; // component, price
   private String name; // The name can be 'slow', 'medium' or 'fast', also showing how long it takes to deliver

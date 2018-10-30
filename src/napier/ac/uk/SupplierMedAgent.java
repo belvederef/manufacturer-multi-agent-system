@@ -16,6 +16,8 @@ import napier.ac.uk_ontology.elements.computerComponents.Ram;
 import napier.ac.uk_ontology.elements.computerComponents.Screen;
 
 public class SupplierMedAgent extends SupplierAgent {
+  private static final long serialVersionUID = 1L;
+  
   private HashMap<ComputerComponent, Integer> componentsForSale; // component, price
   private String name; // The name can be 'slow', 'medium' or 'fast', also showing how long it takes to deliver
   private int deliveryDays; // number of days for delivery

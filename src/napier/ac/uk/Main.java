@@ -1,6 +1,4 @@
 package napier.ac.uk;
-import java.util.HashMap;
-
 import jade.core.*;
 import jade.core.Runtime;
 import jade.wrapper.AgentController;

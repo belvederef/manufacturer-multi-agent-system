@@ -16,6 +16,8 @@ import jade.lang.acl.ACLMessage;
 import jade.lang.acl.MessageTemplate;
 
 public class Ticker extends Agent {
+  private static final long serialVersionUID = 1L;
+  
 	public static final int NUM_DAYS = 1;
 	@Override
 	protected void setup() {
@@ -50,6 +52,7 @@ public class Ticker extends Agent {
 	}
 
 	public class SynchAgentsBehaviour extends Behaviour {
+	  private static final long serialVersionUID = 1L;
 
 		private int step = 0;
 		private int numFinReceived = 0; //finished messages from other agents

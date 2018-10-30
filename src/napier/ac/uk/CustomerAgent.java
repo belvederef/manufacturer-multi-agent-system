@@ -38,6 +38,8 @@ import napier.ac.uk_ontology.elements.predicates.CanManufacture;
 
 // TODO: Add logic to reset if this agent cannot find a manufacturer
 public class CustomerAgent extends Agent {
+  private static final long serialVersionUID = 1L;
+  
   private Codec codec = new SLCodec();
   private Ontology ontology = ShopOntology.getInstance();
   
@@ -81,6 +83,7 @@ public class CustomerAgent extends Agent {
   }
 
   public class TickerWaiter extends CyclicBehaviour {
+    private static final long serialVersionUID = 1L;
 
     // Behaviour to wait for a new day
     public TickerWaiter(Agent a) {
@@ -123,6 +126,7 @@ public class CustomerAgent extends Agent {
   }
   
   public class CreateOrder extends OneShotBehaviour {
+    private static final long serialVersionUID = 1L;
 
     public CreateOrder(Agent a) {
       super(a);
@@ -180,6 +184,7 @@ public class CustomerAgent extends Agent {
   
 
   public class FindManufacturers extends OneShotBehaviour {
+    private static final long serialVersionUID = 1L;
 
     public FindManufacturers(Agent a) {
       super(a);
@@ -206,6 +211,7 @@ public class CustomerAgent extends Agent {
   }
 
   public class AskIfCanManufacture extends OneShotBehaviour {
+    private static final long serialVersionUID = 1L;
 
     public AskIfCanManufacture(Agent a) {
       super(a);
@@ -239,6 +245,8 @@ public class CustomerAgent extends Agent {
 
   
   public class MakeOrderAction extends Behaviour {
+    private static final long serialVersionUID = 1L;
+    
     // Make order if the manufacturer said they can accept the order
     // Otherwise proceed to end the day
     private Boolean replyReceived = false;
@@ -293,6 +301,7 @@ public class CustomerAgent extends Agent {
 
     @Override
     public boolean done() {
+      System.out.println("MakeOrderAction is done. replyReceived is: " + replyReceived);
       return replyReceived;
     }
 
@@ -306,7 +315,8 @@ public class CustomerAgent extends Agent {
   
   
   public class ReceiveOrder extends Behaviour {
-    // this is faulty and makes the app crash.
+    private static final long serialVersionUID = 1L;
+    
     private int numRepliesReceived = 0;
     
     public ReceiveOrder(Agent a) {
@@ -373,6 +383,7 @@ public class CustomerAgent extends Agent {
   
   
   public class EndDay extends OneShotBehaviour {
+    private static final long serialVersionUID = 1L;
     
     public EndDay(Agent a) {
       super(a);

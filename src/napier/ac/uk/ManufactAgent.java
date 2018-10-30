@@ -34,6 +34,8 @@ import napier.ac.uk_ontology.elements.predicates.OwnsComponent;
 
 // A manufacturer is both a buyer and a seller
 public class ManufactAgent extends Agent {
+  private static final long serialVersionUID = 1L;
+  
   private Codec codec = new SLCodec();
   private Ontology ontology = ShopOntology.getInstance();
   
@@ -88,6 +90,7 @@ public class ManufactAgent extends Agent {
 
   
   public class TickerWaiter extends CyclicBehaviour {
+    private static final long serialVersionUID = 1L;
 
     //behaviour to wait for a new day
     public TickerWaiter(Agent a) {
@@ -146,6 +149,7 @@ public class ManufactAgent extends Agent {
   }
 
   public class FindSuppliers extends OneShotBehaviour {
+    private static final long serialVersionUID = 1L;
 
     public FindSuppliers(Agent a) {
       super(a);
@@ -172,6 +176,7 @@ public class ManufactAgent extends Agent {
   }
   
   public class FindCustomers extends OneShotBehaviour {
+    private static final long serialVersionUID = 1L;
 
     public FindCustomers(Agent a) {
       super(a);
@@ -199,6 +204,8 @@ public class ManufactAgent extends Agent {
   }
   
   private class OrderReplyBehaviour extends CyclicBehaviour{
+    private static final long serialVersionUID = 1L;
+    
     // This behaviour accepts or decline an order offer
     // It cycles until the behaviour is not removed at the end of the day
     public OrderReplyBehaviour(Agent a) {
@@ -271,6 +278,8 @@ public class ManufactAgent extends Agent {
   
   
   private class CollectOrderRequests extends CyclicBehaviour{
+    private static final long serialVersionUID = 1L;
+    
     // This behaviour accepts the requests for the order it has accepted in the previous query_if
     // This behaviour accepts the order requests we said yes to, if the customer still wants them
     public CollectOrderRequests(Agent a) {
@@ -381,6 +390,7 @@ public class ManufactAgent extends Agent {
   
   
   public class AskIfCanBuy extends CyclicBehaviour {
+    private static final long serialVersionUID = 1L;
 
     public AskIfCanBuy(Agent a) {
       super(a);
@@ -402,6 +412,7 @@ public class ManufactAgent extends Agent {
         ACLMessage msg = new ACLMessage(ACLMessage.QUERY_IF);
         msg.setLanguage(codec.getName());
         msg.setOntology(ontology.getName()); 
+        msg.setConversationId("manufacturer-order");
         msg.addReceiver(suppliers.get(0));
         
         OwnsComponent ownsComp = new OwnsComponent();
@@ -444,8 +455,13 @@ public class ManufactAgent extends Agent {
 
   
   public class BuyComponentAction extends Behaviour {
+    private static final long serialVersionUID = 1L;
+    
     // Make order for a component if the manufacturer said they accepted it
     // Otherwise proceed to end the day
+    
+    // TODO: using the boolean value below only works if we are dealing with one supplier!
+    // Change logic for dealing with more suppliers
     private Boolean replyReceived = false;
     
     public BuyComponentAction(Agent a) {
@@ -455,7 +471,14 @@ public class ManufactAgent extends Agent {
     @Override
     public void action() {
       // TODO: should probably match on some ontology
-      MessageTemplate mt = MessageTemplate.MatchSender(suppliers.get(0));
+//      MessageTemplate mt = MessageTemplate.MatchOntology(value)
+//          MatchSender(suppliers.get(0));
+      
+//      MessageTemplate.MatchConversationId("manufacturer-order")
+      
+      MessageTemplate mt = MessageTemplate.and(MessageTemplate.MatchConversationId("manufacturer-order"),
+          MessageTemplate.MatchPerformative(ACLMessage.CONFIRM));
+      
       ACLMessage msg = myAgent.receive(mt);
       System.out.println("\nmessage received in BuyComponentAction is: " + msg);
       if(msg != null) {
@@ -470,7 +493,7 @@ public class ManufactAgent extends Agent {
             orderMsg.setLanguage(codec.getName());
             orderMsg.setOntology(ontology.getName()); 
             orderMsg.addReceiver(msg.getSender());
-            
+            System.out.println("Sending order request to supplier1. msg is: " + orderMsg);
             // Lets take into consideration the orders of the first customer
             ArrayList<Order> firstCustOrders = ordersConfirmed.get(customers.get(0));
             
@@ -485,6 +508,7 @@ public class ManufactAgent extends Agent {
   
              getContentManager().fillContent(orderMsg, request); //send the wrapper object
              send(orderMsg);
+             System.out.println("Sending order request to supplier. msg is: " + orderMsg);
              // Add this order to the list of ordered components that we are awaiting to receive
              componentsOrdered.add(firstCustOrders.get(0).getComputer().getCpu()); 
           }
@@ -502,6 +526,7 @@ public class ManufactAgent extends Agent {
 
     @Override
     public boolean done() {
+      System.out.println("BuyComponentAction is done. replyReceived is: " + replyReceived);
       return replyReceived;
     }
 
@@ -718,7 +743,10 @@ public class ManufactAgent extends Agent {
   
   
   public class EndDayListener extends CyclicBehaviour {
+    private static final long serialVersionUID = 1L;
+    
     private int customerFinished = 0;
+//    private int supplierFinished = 0;
     private List<Behaviour> toRemove;
     
     public EndDayListener(Agent a, List<Behaviour> toRemove) {
@@ -743,6 +771,14 @@ public class ManufactAgent extends Agent {
         doneMsg.setContent("done");
         doneMsg.addReceiver(tickerAgent);
         myAgent.send(doneMsg);
+        
+        // Inform the suppliers that we are done
+        ACLMessage supplierDone = new ACLMessage(ACLMessage.INFORM);
+        supplierDone.setContent("done");
+        for(AID supplier : suppliers) {
+          supplierDone.addReceiver(supplier);
+        }
+        myAgent.send(supplierDone);
         
         // Remove cyclic behaviours
         for(Behaviour b : toRemove) {
