@@ -32,15 +32,15 @@ public abstract class SupplierAgent extends Agent {
   private Codec codec = new SLCodec();
   private Ontology ontology = ShopOntology.getInstance();
   
-  private HashMap<ComputerComponent, Integer> componentsForSale; // component, price
   private AID tickerAgent;
   private ArrayList<AID> buyers = new ArrayList<>();
   
   private HashMap<AID, ComputerComponent> componentsApproved = new HashMap<>(); // List of the components order we said yes to
   private HashMap<AID, ComputerComponent> componentsConfirmed = new HashMap<>(); // List of the components and the agents that they are for
 
-  // This is overriden by the specific supplier implementations
+  // These are overriden by the specific supplier implementations
   private int deliveryDays; // number of days for delivery
+  protected HashMap<ComputerComponent, Integer> componentsForSale; // component, price
   protected void setup() {}
   
   protected void register() {

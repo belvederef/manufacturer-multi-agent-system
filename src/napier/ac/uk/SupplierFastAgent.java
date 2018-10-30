@@ -14,11 +14,15 @@ public class SupplierFastAgent extends SupplierAgent {
   private String name; // The name can be 'slow', 'medium' or 'fast', also showing how long it takes to deliver
   private int deliveryDays; // number of days for delivery
 
+  public SupplierFastAgent() {
+    
+  }
+  
   @Override
   protected void setup() {
-    componentsForSale = new HashMap<ComputerComponent, Integer>(); // pass list of components and prices
-    componentsForSale.put(new CpuLaptop(), 200);
-    componentsForSale.put(new CpuDesktop(), 150);
+    super.componentsForSale = new HashMap<ComputerComponent, Integer>(); // pass list of components and prices
+    super.componentsForSale.put(new CpuLaptop(), 200);
+    super.componentsForSale.put(new CpuDesktop(), 150);
 //    componentsForSale.put("LaptopMotherboard", 125);
 //    componentsForSale.put("DesktopMotherboard", 75);
 //    componentsForSale.put("RAM8", 50);

@@ -15,9 +15,9 @@ public class SupplierSlowAgent extends SupplierAgent {
   
   @Override
   protected void setup() {
-    componentsForSale = new HashMap<ComputerComponent, Integer>(); // pass list of components and prices
-    componentsForSale.put(new CpuLaptop(), 150);
-    componentsForSale.put(new CpuDesktop(), 110);
+    super.componentsForSale = new HashMap<ComputerComponent, Integer>(); // pass list of components and prices
+    super.componentsForSale.put(new CpuLaptop(), 150);
+    super.componentsForSale.put(new CpuDesktop(), 110);
 //    componentsForSale.put("LaptopMotherboard", 95);
 //    componentsForSale.put("DesktopMotherboard", 50);
 //    componentsForSale.put("RAM8", 30);
