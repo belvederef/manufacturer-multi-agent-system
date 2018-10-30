@@ -7,6 +7,12 @@ import jade.content.onto.annotations.Slot;
 public class HardDrive extends ComputerComponent {
 	private String capacity;
 	
+	public HardDrive() {}
+	
+	public HardDrive(String capacity) {
+    this.capacity = capacity;
+  }
+	
 	@Slot(mandatory = true)
 	public String getCapacity() {
 		return capacity;
@@ -17,7 +23,7 @@ public class HardDrive extends ComputerComponent {
 	
 	@Override
 	public String toString() {
-		return this.capacity;
+	  return "Hard Drive-" + this.capacity;
 	}
 	
 	@Override

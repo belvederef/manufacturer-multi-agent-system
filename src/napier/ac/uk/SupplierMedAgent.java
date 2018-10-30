@@ -7,9 +7,13 @@ import napier.ac.uk.SupplierAgent.TickerWaiter;
 import napier.ac.uk_ontology.elements.computerComponents.ComputerComponent;
 import napier.ac.uk_ontology.elements.computerComponents.CpuDesktop;
 import napier.ac.uk_ontology.elements.computerComponents.CpuLaptop;
+import napier.ac.uk_ontology.elements.computerComponents.HardDrive;
 import napier.ac.uk_ontology.elements.computerComponents.MotherboardDesktop;
 import napier.ac.uk_ontology.elements.computerComponents.MotherboardLaptop;
+import napier.ac.uk_ontology.elements.computerComponents.OsLinux;
+import napier.ac.uk_ontology.elements.computerComponents.OsWindows;
 import napier.ac.uk_ontology.elements.computerComponents.Ram;
+import napier.ac.uk_ontology.elements.computerComponents.Screen;
 
 public class SupplierMedAgent extends SupplierAgent {
   private HashMap<ComputerComponent, Integer> componentsForSale; // component, price
@@ -21,16 +25,15 @@ public class SupplierMedAgent extends SupplierAgent {
     super.componentsForSale = new HashMap<ComputerComponent, Integer>(); // pass list of components and prices
     super.componentsForSale.put(new CpuLaptop(), 175);
     super.componentsForSale.put(new CpuDesktop(), 130);
-
     super.componentsForSale.put(new MotherboardDesktop(), 115);
     super.componentsForSale.put(new MotherboardLaptop(), 60);
     super.componentsForSale.put(new Ram("8GB"), 40);
-//    super.componentsForSale.put(new RAM16(), 80);
-//    super.componentsForSale.put(new HDD1(), 45);
-//    super.componentsForSale.put(new HDD2(), 65);
-//    super.componentsForSale.put(new LaptopScreen(), 80);
-//    super.componentsForSale.put(new WindowsOS(), 75);
-//    super.componentsForSale.put(new LinuxOS(), 0);
+    super.componentsForSale.put(new Ram("16GB"), 80);
+    super.componentsForSale.put(new HardDrive("1TB"), 45);
+    super.componentsForSale.put(new HardDrive("2TB"), 65);
+    super.componentsForSale.put(new Screen(), 80);
+    super.componentsForSale.put(new OsWindows(), 75);
+    super.componentsForSale.put(new OsLinux(), 0);
     
     deliveryDays = 3;
     name = "slow"; // pass name/speed

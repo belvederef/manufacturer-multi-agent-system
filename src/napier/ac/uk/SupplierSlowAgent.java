@@ -2,10 +2,16 @@ package napier.ac.uk;
 
 import java.util.HashMap;
 
-import jade.core.AID;
 import napier.ac.uk_ontology.elements.computerComponents.ComputerComponent;
 import napier.ac.uk_ontology.elements.computerComponents.CpuDesktop;
 import napier.ac.uk_ontology.elements.computerComponents.CpuLaptop;
+import napier.ac.uk_ontology.elements.computerComponents.HardDrive;
+import napier.ac.uk_ontology.elements.computerComponents.MotherboardDesktop;
+import napier.ac.uk_ontology.elements.computerComponents.MotherboardLaptop;
+import napier.ac.uk_ontology.elements.computerComponents.OsLinux;
+import napier.ac.uk_ontology.elements.computerComponents.OsWindows;
+import napier.ac.uk_ontology.elements.computerComponents.Ram;
+import napier.ac.uk_ontology.elements.computerComponents.Screen;
 
 public class SupplierSlowAgent extends SupplierAgent {
 //  private HashMap<String,Integer> componentsForSale = new HashMap<>(); // component, price
@@ -18,15 +24,15 @@ public class SupplierSlowAgent extends SupplierAgent {
     super.componentsForSale = new HashMap<ComputerComponent, Integer>(); // pass list of components and prices
     super.componentsForSale.put(new CpuLaptop(), 150);
     super.componentsForSale.put(new CpuDesktop(), 110);
-//    componentsForSale.put("LaptopMotherboard", 95);
-//    componentsForSale.put("DesktopMotherboard", 50);
-//    componentsForSale.put("RAM8", 30);
-//    componentsForSale.put("RAM16", 70);
-//    componentsForSale.put("HDD1", 35);
-//    componentsForSale.put("HDD2", 55);
-//    componentsForSale.put("LaptopScreen", 60);
-//    componentsForSale.put("WindowsOS", 75);
-//    componentsForSale.put("LinuxOS", 0);
+    super.componentsForSale.put(new MotherboardDesktop(), 95);
+    super.componentsForSale.put(new MotherboardLaptop(), 50);
+    super.componentsForSale.put(new Ram("8GB"), 30);
+    super.componentsForSale.put(new Ram("16GB"), 70);
+    super.componentsForSale.put(new HardDrive("1TB"), 35);
+    super.componentsForSale.put(new HardDrive("2TB"), 55);
+    super.componentsForSale.put(new Screen(), 60);
+    super.componentsForSale.put(new OsWindows(), 75);
+    super.componentsForSale.put(new OsLinux(), 0);
     
     deliveryDays = 7;
     name = "slow"; // pass name/speed

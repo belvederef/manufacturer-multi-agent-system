@@ -7,7 +7,7 @@ import jade.content.onto.annotations.Slot;
 public class Ram extends ComputerComponent {
 	private String capacity;
 	
-//	public Ram () {}
+	public Ram () {}
 	 
 	public Ram (String capacity) { 
 	  this.capacity = capacity;
@@ -23,7 +23,7 @@ public class Ram extends ComputerComponent {
 	
 	@Override
 	public String toString() {
-		return this.capacity;
+		return "Ram-" + this.capacity;
 	}
 	
 	 @Override

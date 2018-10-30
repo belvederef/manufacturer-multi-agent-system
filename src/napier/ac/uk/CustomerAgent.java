@@ -146,18 +146,14 @@ public class CustomerAgent extends Agent {
     	computer = new Laptop();
       }
       if(rand.nextFloat() < 0.5) {
-    	ram = new Ram();
-    	ram.setCapacity("8GB");
+    	ram = new Ram("8GB");
       } else {
-    	ram = new Ram();
-    	ram.setCapacity("16GB");
+    	ram = new Ram("16GB");
       }
       if(rand.nextFloat() < 0.5) {
-    	hardDrive = new HardDrive();
-    	hardDrive.setCapacity("1TB");
+    	hardDrive = new HardDrive("1TB");
       } else {
-        hardDrive = new HardDrive();
-        hardDrive.setCapacity("2TB");
+        hardDrive = new HardDrive("2TB");
       }
       if(rand.nextFloat() < 0.5) {
     	os = new OsWindows();
