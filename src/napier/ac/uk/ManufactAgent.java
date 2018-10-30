@@ -471,7 +471,6 @@ public class ManufactAgent extends Agent {
             orderMsg.setOntology(ontology.getName()); 
             orderMsg.addReceiver(msg.getSender());
             
-  
             // Lets take into consideration the orders of the first customer
             ArrayList<Order> firstCustOrders = ordersConfirmed.get(customers.get(0));
             
@@ -514,6 +513,7 @@ public class ManufactAgent extends Agent {
 
   }
   
+  // Should there be a function awaiting for components to be received?
   
   
   

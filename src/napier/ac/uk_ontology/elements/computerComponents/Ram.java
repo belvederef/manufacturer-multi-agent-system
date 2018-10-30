@@ -7,6 +7,12 @@ import jade.content.onto.annotations.Slot;
 public class Ram extends ComputerComponent {
 	private String capacity;
 	
+//	public Ram () {}
+	 
+	public Ram (String capacity) { 
+	  this.capacity = capacity;
+	}
+	
 	@Slot(mandatory = true)
 	public String getCapacity() {
 		return capacity;
