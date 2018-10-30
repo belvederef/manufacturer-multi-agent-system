@@ -257,10 +257,13 @@ public abstract class SupplierAgent extends Agent {
       System.out.println("buyers.size(): " + buyers.size());
       if (msg != null) {
         buyersFinished++;
+        System.out.println("buyersFinished++;");
       } else {
         block();
       }
+      // TODO: the supplier never goes past this. It gets blocked
       if (buyersFinished == buyers.size()) {
+        System.out.println("SUPPLIER " + myAgent.getName() + " IS DONE");
         // We are finished
         ACLMessage tick = new ACLMessage(ACLMessage.INFORM);
         tick.setContent("done");
