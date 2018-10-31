@@ -17,12 +17,18 @@ import jade.core.Agent;
 import jade.core.behaviours.Behaviour;
 import jade.core.behaviours.CyclicBehaviour;
 import jade.core.behaviours.OneShotBehaviour;
+import jade.core.behaviours.SequentialBehaviour;
 import jade.domain.DFService;
 import jade.domain.FIPAException;
 import jade.domain.FIPAAgentManagement.DFAgentDescription;
 import jade.domain.FIPAAgentManagement.ServiceDescription;
 import jade.lang.acl.ACLMessage;
 import jade.lang.acl.MessageTemplate;
+import napier.ac.uk.CustomerAgent.AskIfCanManufacture;
+import napier.ac.uk.CustomerAgent.CreateOrder;
+import napier.ac.uk.CustomerAgent.EndDay;
+import napier.ac.uk.CustomerAgent.FindManufacturers;
+import napier.ac.uk.CustomerAgent.MakeOrderAction;
 import napier.ac.uk_ontology.ShopOntology;
 import napier.ac.uk_ontology.elements.Computer;
 import napier.ac.uk_ontology.elements.Order;
@@ -116,35 +122,21 @@ public class ManufactAgent extends Agent {
           // have a look at the JADE response things that Simon said, so that ShipOrder or ShipComponent
             // are predicates that respond to the actions. I can use an INFORM message that contains 
             // those predicates
-
-          myAgent.addBehaviour(new FindSuppliers(myAgent));
-          myAgent.addBehaviour(new FindCustomers(myAgent));
-          
-          // Add the cyclic behavior to a list that will remove all of them at the end of the day
-          ArrayList<Behaviour> cyclicBehaviours = new ArrayList<>();
-          
-          CyclicBehaviour orb = new OrderReplyBehaviour(myAgent);
-          myAgent.addBehaviour(orb);
-          cyclicBehaviours.add(orb);
-          
-          CyclicBehaviour cor = new CollectOrderRequests(myAgent);
-          myAgent.addBehaviour(cor);
-          cyclicBehaviours.add(cor);
-          
-          CyclicBehaviour aicb = new AskIfCanBuy(myAgent);
-          myAgent.addBehaviour(aicb);
-          cyclicBehaviours.add(aicb);
           
           
-          // This should come only after the collect order request behaviours. Note on this,
-          // the manufacturer should be asynchronous. It could receive orders whenever and they might
-          // not follow the synchronous behavious the other agents may have
-//          myAgent.addBehaviour(new AskIfCanBuy(myAgent)); 
-          myAgent.addBehaviour(new BuyComponentAction(myAgent));
+          // Spawn a new sequential behaviour for the day's activities
+          SequentialBehaviour dailyActivity = new SequentialBehaviour();
           
+          // Sub-behaviours will execute in the order they are added
+          dailyActivity.addSubBehaviour(new FindSuppliers(myAgent));
+          dailyActivity.addSubBehaviour(new FindCustomers(myAgent));
+          dailyActivity.addSubBehaviour(new OrderReplyBehaviour(myAgent));
+          dailyActivity.addSubBehaviour(new CollectOrderRequests(myAgent));
+          dailyActivity.addSubBehaviour(new AskIfCanBuy(myAgent));
+          dailyActivity.addSubBehaviour(new BuyComponentAction(myAgent));
+          dailyActivity.addSubBehaviour(new EndDay(myAgent));
           
-
-          myAgent.addBehaviour(new EndDayListener(myAgent, cyclicBehaviours));
+          myAgent.addBehaviour(dailyActivity);
         }
         else {
           //termination message to end simulation
@@ -796,6 +788,25 @@ public class ManufactAgent extends Agent {
         }
         myAgent.removeBehaviour(this);
       }
+    }
+  }
+  
+  public class EndDay extends OneShotBehaviour {
+    private static final long serialVersionUID = 1L;
+    
+    public EndDay(Agent a) {
+      super(a);
+    }
+
+    @Override
+    public void action() {
+      // Inform the ticker agent and the manufacturer that we are done 
+      ACLMessage doneMsg = new ACLMessage(ACLMessage.INFORM);
+      doneMsg.setContent("done");
+      doneMsg.addReceiver(tickerAgent);
+//      doneMsg.addReceiver(manufacturer);
+      
+      myAgent.send(doneMsg);
     }
   }
 }
