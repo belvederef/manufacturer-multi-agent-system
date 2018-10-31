@@ -107,6 +107,12 @@ public class ManufactAgent extends Agent {
           tickerAgent = msg.getSender();
         }
         if(msg.getContent().equals("new day")) {
+          // TODO: Manufacturer should use a sequential behaviour!!!
+          // Assume the agents will never fail, so always get a response
+          // Introduce the conversation id to match the correct messages
+          // Can match on the predicate/action as well using get getContentManager().extractContent
+          // have a look at the JADE response things that Simon said, so that ShipOrder or ShipComponent
+            // are predicates that respond to the actions.
           myAgent.addBehaviour(new FindSuppliers(myAgent));
           myAgent.addBehaviour(new FindCustomers(myAgent));
           
