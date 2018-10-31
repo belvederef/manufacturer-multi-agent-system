@@ -34,6 +34,7 @@ import napier.ac.uk_ontology.concepts.Desktop;
 import napier.ac.uk_ontology.concepts.Laptop;
 import napier.ac.uk_ontology.concepts.Order;
 import napier.ac.uk_ontology.predicates.CanManufacture;
+import napier.ac.uk_ontology.predicates.ShipOrder;
 
 
 // TODO: Add logic to reset if this agent cannot find a manufacturer
@@ -110,6 +111,8 @@ public class CustomerAgent extends Agent {
           dailyActivity.addSubBehaviour(new MakeOrderAction(myAgent));
 //          dailyActivity.addSubBehaviour(new ReceiveOrder(myAgent));
           dailyActivity.addSubBehaviour(new EndDay(myAgent));
+          
+          myAgent.addBehaviour(new ReceiveOrder(myAgent));
           
           myAgent.addBehaviour(dailyActivity);
         } else {
@@ -221,6 +224,7 @@ public class CustomerAgent extends Agent {
       ACLMessage msg = new ACLMessage(ACLMessage.QUERY_IF);
       msg.setLanguage(codec.getName());
       msg.setOntology(ontology.getName()); 
+      msg.setConversationId("customer-order");
       msg.addReceiver(manufacturer);
       
       CanManufacture canManufacture = new CanManufacture();
@@ -257,7 +261,16 @@ public class CustomerAgent extends Agent {
     public void action() {
       // TODO: should probably match on some ontology o al limite the conversation id with 
       // msg.setConversationId("book-trade");
-      MessageTemplate mt = MessageTemplate.MatchSender(manufacturer);
+//      MessageTemplate mt = MessageTemplate.MatchSender(manufacturer);
+      
+      // Match the conversation id and a confirm or disconfirm message
+      MessageTemplate mt = MessageTemplate.and(
+          MessageTemplate.MatchConversationId("customer-order"),
+          MessageTemplate.or(
+              MessageTemplate.MatchPerformative(ACLMessage.CONFIRM),
+              MessageTemplate.MatchPerformative(ACLMessage.DISCONFIRM)));
+
+      
       ACLMessage msg = myAgent.receive(mt);
       System.out.println("\nmsg received in MakeOrderAction is: " + msg);
       if(msg != null) {
@@ -270,6 +283,7 @@ public class CustomerAgent extends Agent {
           ACLMessage orderMsg = new ACLMessage(ACLMessage.REQUEST);
           orderMsg.setLanguage(codec.getName());
           orderMsg.setOntology(ontology.getName()); 
+          orderMsg.setConversationId("customer-order");
           orderMsg.addReceiver(manufacturer);
           
           // Prepare the content. 
@@ -315,68 +329,63 @@ public class CustomerAgent extends Agent {
   }
   
   
-  public class ReceiveOrder extends Behaviour {
+  public class ReceiveOrder extends CyclicBehaviour {
     private static final long serialVersionUID = 1L;
     
-    private int numRepliesReceived = 0;
+    private int receivedOrders = 0;
     
     public ReceiveOrder(Agent a) {
       super(a);
     }
-
     
+    // TODO: keep a list of orders with the AID of the manufacurer that has to send them to us.
+    // then pop() the order from the orders we are awaiting and add it to the orders received 
     @Override
-    public void action() {
-      // TODO: use an ontology action such us matchPerformative shipOrder instead of sender
-      // I can try with .matchOntology(shipOrder)
-      MessageTemplate mt = MessageTemplate.MatchSender(manufacturer);
-      ACLMessage msg = myAgent.receive(mt);
-      if(msg != null) {
-        
+    public void action() { 
+      MessageTemplate mt = MessageTemplate.and(
+          MessageTemplate.MatchPerformative(ACLMessage.INFORM),
+          MessageTemplate.MatchConversationId("customer-order"));
+      ACLMessage msg = receive(mt);
+      
+      if(msg != null){
         try {
           ContentElement ce = null;
           
-          // Let JADE convert from String to Java objects
-          // Output will be a ContentElement
+          // Print out the message content in SL
+          System.out.println("\nMessage received by cust from manufac" + msg.getContent()); 
+
           ce = getContentManager().extractContent(msg);
-          if (ce instanceof Order) {
-            Order order = (Order) ce;
+          if (ce instanceof ShipOrder) {
+            ShipOrder shipOrder = (ShipOrder) ce;
+            Order order = (Order) shipOrder.getOrder();
+
+            // TODO: implement -> if order in current orders print message
+            // Extract the received component and print it
+            System.out.println("\ncustomer " + getLocalName() + " received order " + order.toString());
+            receivedOrders++;
             
-            // Optional, for testing
-            Computer comp = order.getComputer();
-            System.out.println("The computer is " + comp.toString());
-           
-            // Check that the order received was one that we were waiting for, that is contained in currentOrders
-            
-            // If it is, remove the receive order from the list currentOrders
-            
+            // transfer payment at reception of order
+
+          } else {
+              System.out.println("Unknown predicate " + ce.getClass().getName());
           }
-          
-          
-          
-        } catch (CodecException ce) {
-            ce.printStackTrace();
-          }
-          catch (OntologyException oe) {
-            oe.printStackTrace();
-          }
-        
+        }
+        catch (CodecException ce) {
+          ce.printStackTrace();
+        }
+        catch (OntologyException oe) {
+          oe.printStackTrace();
+        }
       } else {
         block();
       }
+      
     }
-
-    @Override
-    public boolean done() {
-      return true;
-    }
-
-    @Override
-    public int onEnd() {
-      // Do something on end
-      return 0;
-    }
-
+//    @Override
+//    public boolean done() {
+//      // TODO Auto-generated method stub
+//      return receivedOrders >= 1;
+//    }
   }
   
   
@@ -396,7 +405,6 @@ public class CustomerAgent extends Agent {
       ACLMessage doneMsg = new ACLMessage(ACLMessage.INFORM);
       doneMsg.setContent("done");
       doneMsg.addReceiver(tickerAgent);
-      doneMsg.addReceiver(manufacturer);
       
       myAgent.send(doneMsg);
     }

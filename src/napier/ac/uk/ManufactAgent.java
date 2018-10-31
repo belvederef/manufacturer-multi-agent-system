@@ -2,7 +2,6 @@ package napier.ac.uk;
 
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
 
 import jade.content.Concept;
 import jade.content.ContentElement;
@@ -32,6 +31,8 @@ import napier.ac.uk_ontology.concepts.ComputerComponent;
 import napier.ac.uk_ontology.concepts.Order;
 import napier.ac.uk_ontology.predicates.CanManufacture;
 import napier.ac.uk_ontology.predicates.OwnsComponent;
+import napier.ac.uk_ontology.predicates.ShipComponent;
+import napier.ac.uk_ontology.predicates.ShipOrder;
 
 // A manufacturer is both a buyer and a seller
 public class ManufactAgent extends Agent {
@@ -136,6 +137,8 @@ public class ManufactAgent extends Agent {
           dailyActivity.addSubBehaviour(new CollectOrderRequests(myAgent));
           dailyActivity.addSubBehaviour(new AskIfCanBuy(myAgent));
           dailyActivity.addSubBehaviour(new BuyComponentAction(myAgent));
+          dailyActivity.addSubBehaviour(new ReceiveComponent(myAgent));
+          dailyActivity.addSubBehaviour(new ManufactureAndSend(myAgent));
           dailyActivity.addSubBehaviour(new EndDay(myAgent));
           
           myAgent.addBehaviour(dailyActivity);
@@ -219,8 +222,11 @@ public class ManufactAgent extends Agent {
     @Override
     public void action() {
       //This behaviour should only respond to QUERY_IF messages
-      MessageTemplate mt = MessageTemplate.MatchPerformative(ACLMessage.QUERY_IF); 
+      MessageTemplate mt = MessageTemplate.and(
+          MessageTemplate.MatchPerformative(ACLMessage.QUERY_IF),
+          MessageTemplate.MatchConversationId("customer-order"));
       ACLMessage msg = receive(mt);
+      
       if(msg != null){
         try {
           ContentElement ce = null;
@@ -242,6 +248,7 @@ public class ManufactAgent extends Agent {
             
             // Accept all orders just for development
       			ACLMessage reply = msg.createReply();
+      			msg.setConversationId("customer-order");
       			if(true) { 
       			  // TODO: build logic for accepting. e.g. if the supplier has the components in stock or we do
       			  
@@ -256,7 +263,6 @@ public class ManufactAgent extends Agent {
       			  }
       			  
       				reply.setPerformative(ACLMessage.CONFIRM);
-      				reply.setContent("Accepted");
       				
       				System.out.println("\nSending response to the customer. We accept.");
       			} else {
@@ -305,8 +311,11 @@ public class ManufactAgent extends Agent {
     @Override
     public void action() {
       // This behaviour should only respond to REQUEST messages
-      MessageTemplate mt = MessageTemplate.MatchPerformative(ACLMessage.REQUEST); 
+      MessageTemplate mt = MessageTemplate.and(
+          MessageTemplate.MatchPerformative(ACLMessage.REQUEST),
+          MessageTemplate.MatchConversationId("customer-order"));
       ACLMessage msg = receive(mt);
+      
       if(msg != null){
         try {
           ContentElement ce = null;
@@ -376,45 +385,6 @@ public class ManufactAgent extends Agent {
   }
   
   
-//  private class BuyComponents extends OneShotBehaviour{
-//    // This behaviour buys the components needed to make the orders that we have on the list of confirmed orders
-//    public BuyComponents(Agent a) {
-//      super(a);
-//    }
-//    
-//    @Override
-//    public void action() {
-//      // This behaviour should only respond to REQUEST messages
-//      MessageTemplate mt = MessageTemplate.MatchPerformative(ACLMessage.REQUEST); 
-//      ACLMessage msg = receive(mt);
-//      if(msg != null){
-//        try {
-//          ContentElement ce = null;
-//          System.out.println(msg.getContent());
-//
-//          // Let JADE convert from String to Java objects
-//          ce = getContentManager().extractContent(msg);
-//          if(ce instanceof Action) {
-//            Concept action = ((Action)ce).getAction();
-//            if (action instanceof MakeOrder) {
-//              MakeOrder makeOrder = (MakeOrder) action;
-//              // TODO: the components of the orders added to ordersConfirmed should be bought in the next step 
-//              ordersConfirmed.put(makeOrder.getBuyer(), makeOrder.getOrder());
-//            }
-//          }
-//        } catch (CodecException ce) {
-//          ce.printStackTrace();
-//        } catch (OntologyException oe) {
-//          oe.printStackTrace();
-//        }
-//      }
-//      else{
-//        block();
-//      }
-//    }
-//  }
-  
-  
   public class AskIfCanBuy extends Behaviour {
     private static final long serialVersionUID = 1L;
     
@@ -439,8 +409,8 @@ public class ManufactAgent extends Agent {
       ACLMessage msg = new ACLMessage(ACLMessage.QUERY_IF);
       msg.setLanguage(codec.getName());
       msg.setOntology(ontology.getName()); 
-      msg.setConversationId("manufacturer-order");
       msg.addReceiver(suppliers.get(0));
+      msg.setConversationId("component-selling");
       
       OwnsComponent ownsComp = new OwnsComponent();
       ownsComp.setOwner(suppliers.get(0));
@@ -495,6 +465,8 @@ public class ManufactAgent extends Agent {
     // Change logic for dealing with more suppliers
     
     // TODO: This should be equal to the number of components that I need to request
+    
+    // TODO: send money when you request to buy a component
     private int requestsSent = 0;
     
     public BuyComponentAction(Agent a) {
@@ -509,8 +481,9 @@ public class ManufactAgent extends Agent {
       
 //      MessageTemplate.MatchConversationId("manufacturer-order")
       
-      MessageTemplate mt = MessageTemplate.and(MessageTemplate.MatchConversationId("manufacturer-order"),
-          MessageTemplate.MatchPerformative(ACLMessage.CONFIRM));
+      MessageTemplate mt = MessageTemplate.and(
+          MessageTemplate.MatchPerformative(ACLMessage.CONFIRM),
+          MessageTemplate.MatchConversationId("component-selling"));
       
       ACLMessage msg = myAgent.receive(mt);
       System.out.println("\nmessage received in BuyComponentAction is: " + msg);
@@ -525,7 +498,9 @@ public class ManufactAgent extends Agent {
             ACLMessage orderMsg = new ACLMessage(ACLMessage.REQUEST);
             orderMsg.setLanguage(codec.getName());
             orderMsg.setOntology(ontology.getName()); 
+            orderMsg.setConversationId("component-selling");
             orderMsg.addReceiver(msg.getSender());
+            
             System.out.println("Sending order request to supplier1. msg is: " + orderMsg);
             // Lets take into consideration the orders of the first customer
             ArrayList<Order> firstCustOrders = ordersConfirmed.get(customers.get(0));
@@ -576,209 +551,136 @@ public class ManufactAgent extends Agent {
 
   }
   
-  // Should there be a function awaiting for components to be received?
+  public class ReceiveComponent extends Behaviour {
+    private static final long serialVersionUID = 1L;
+    
+    private int componentsReceived = 0;
+    
+    public ReceiveComponent(Agent a) {
+      super(a);
+    }
+    
+    // TODO: keep a list of components ordered with the AID of the supplier that has to send them to us.
+    // then pop() the order from the orders we are awaiting and add it to the orders available 
+    @Override
+    public void action() { 
+      MessageTemplate mt = MessageTemplate.and(
+          MessageTemplate.MatchPerformative(ACLMessage.INFORM),
+          MessageTemplate.MatchConversationId("component-selling"));
+      ACLMessage msg = receive(mt);
+      
+      if(msg != null){
+        try {
+          ContentElement ce = null;
+          
+          // Print out the message content in SL
+          System.out.println("\nMessage received by manufacturer from supplier " + msg.getContent()); 
+
+          ce = getContentManager().extractContent(msg);
+          if (ce instanceof ShipComponent) {
+            ShipComponent shipComponent = (ShipComponent) ce;
+            ComputerComponent component = shipComponent.getComponent();
+            
+            // Extract the received component and print it
+            System.out.println("Received component " + component.toString());
+            
+            componentsAvailable.add(component);
+            componentsReceived++;
+          } else {
+              System.out.println("Unknown predicate " + ce.getClass().getName());
+          }
+        }
+        catch (CodecException ce) {
+          ce.printStackTrace();
+        }
+        catch (OntologyException oe) {
+          oe.printStackTrace();
+        }
+      } else{
+        block();
+      }
+      
+    }
+    @Override
+    public boolean done() {
+      // TODO Auto-generated method stub
+      return componentsReceived >= 1;
+    }
+  }
   
   
-  
-//  public class CollectOrders extends Behaviour {
-//    private int numRepliesReceived = 0;
-//    
-//    public CollectOrders(Agent a) {
-//      super(a);
-//      currentOrders.clear();
-//    }
-//
-//    
-//    @Override
-//    public void action() {
-//      boolean received = false;
-//      for(String bookTitle : booksToBuy) {
-//        MessageTemplate mt = MessageTemplate.MatchConversationId(bookTitle);
-//        ACLMessage msg = myAgent.receive(mt);
-//        if(msg != null) {
-//          received = true;
-//          numRepliesReceived++;
-//          if(msg.getPerformative() == ACLMessage.PROPOSE) {
-//            //we have an offer
-//            //the first offer for a book today
-//            if(!currentOrders.containsKey(bookTitle)) {
-//              ArrayList<Offer> offers = new ArrayList<>();
-//              offers.add(new Offer(msg.getSender(),
-//                  Integer.parseInt(msg.getContent())));
-//              currentOrders.put(bookTitle, offers);
-//            }
-//            //subsequent offers
-//            else {
-//              ArrayList<Offer> offers = currentOrders.get(bookTitle);
-//              offers.add(new Offer(msg.getSender(),
-//                  Integer.parseInt(msg.getContent())));
-//            }
-//              
-//          }
-//
-//        }
-//      }
-//      if(!received) {
-//        block();
-//      }
-//    }
-//    
-//
-//    @Override
-//    public boolean done() {
-//      return numRepliesReceived == numQueriesSent;
-//    }
-//
-//    @Override
-//    public int onEnd() {
-//      //print the offers
-//      for(String book : booksToBuy) {
-//        if(currentOrders.containsKey(book)) {
-//          ArrayList<Offer> offers = currentOrders.get(book);
-//          for(Offer o : offers) {
-//            System.out.println(book + "," + o.getSeller().getLocalName() + "," + o.getPrice());
-//          }
-//        }
-//        else {
-//          System.out.println("No offers for " + book);
-//        }
-//      }
-//      return 0;
-//    }
-//
-//  }
+  private class ManufactureAndSend extends Behaviour {
+    private static final long serialVersionUID = 1L;
+    
+    private int sentOrders = 0;
+
+    public ManufactureAndSend(Agent a) {
+      super(a);
+    }
+
+    @Override
+    public void action() {
+      // for each order
+      // If have enough components, manufacture components into an order and send to customer
+      
+      AID cust = customers.get(0);
+      Order order = ordersConfirmed.get(cust).get(0);
+      
+      // Prepare the INFORM message. Asks the manufacturer to if they will accept the order
+      ACLMessage msg = new ACLMessage(ACLMessage.INFORM);
+      msg.setLanguage(codec.getName());
+      msg.setOntology(ontology.getName()); 
+      msg.addReceiver(cust);
+      
+      ShipOrder shipOrder = new ShipOrder();
+      shipOrder.setBuyer(cust);
+      shipOrder.setOrder(order);
+      
+      try {
+        // Fill content
+        getContentManager().fillContent(msg, shipOrder);
+        send(msg);
+        sentOrders++;
+        System.out.println("Sent order " + order + " to cust " + cust.getLocalName());
+       }
+       catch (CodecException ce) {
+        ce.printStackTrace();
+       }
+       catch (OntologyException oe) {
+        oe.printStackTrace();
+       } 
+    }
+      
+
+    @Override
+    public boolean done() {
+      // TODO Auto-generated method stub
+      return sentOrders >= 1;
+    }
+
+  }
   
   
-//
-//  public class SendEnquiries extends OneShotBehaviour {
-//
-//    public SendEnquiries(Agent a) {
-//      super(a);
-//    }
-//
-//    @Override
-//    public void action() {
-//      //send out a call for proposals for each book
-//      numQueriesSent = 0;
-//      for(String bookTitle : booksToBuy) {
-//        ACLMessage enquiry = new ACLMessage(ACLMessage.CFP);
-//        enquiry.setContent(bookTitle);
-//        enquiry.setConversationId(bookTitle);
-//        for(AID seller : sellers) {
-//          enquiry.addReceiver(seller);
-//          numQueriesSent++;
-//        }
-//        myAgent.send(enquiry);
-//        
-//      }
-//
-//    }
-//  }
-//
-//  public class CollectOffers extends Behaviour {
-//    private int numRepliesReceived = 0;
-//    
-//    public CollectOffers(Agent a) {
-//      super(a);
-//      currentOrders.clear();
-//    }
-//
-//    
-//    @Override
-//    public void action() {
-//      boolean received = false;
-//      for(String bookTitle : booksToBuy) {
-//        MessageTemplate mt = MessageTemplate.MatchConversationId(bookTitle);
-//        ACLMessage msg = myAgent.receive(mt);
-//        if(msg != null) {
-//          received = true;
-//          numRepliesReceived++;
-//          if(msg.getPerformative() == ACLMessage.PROPOSE) {
-//            //we have an offer
-//            //the first offer for a book today
-//            if(!currentOrders.containsKey(bookTitle)) {
-//              ArrayList<Offer> offers = new ArrayList<>();
-//              offers.add(new Offer(msg.getSender(),
-//                  Integer.parseInt(msg.getContent())));
-//              currentOrders.put(bookTitle, offers);
-//            }
-//            //subsequent offers
-//            else {
-//              ArrayList<Offer> offers = currentOrders.get(bookTitle);
-//              offers.add(new Offer(msg.getSender(),
-//                  Integer.parseInt(msg.getContent())));
-//            }
-//              
-//          }
-//
-//        }
-//      }
-//      if(!received) {
-//        block();
-//      }
-//    }
-//
-//    
-//
-//    @Override
-//    public boolean done() {
-//      return numRepliesReceived == numQueriesSent;
-//    }
-//
-//    @Override
-//    public int onEnd() {
-//      //print the offers
-//      for(String book : booksToBuy) {
-//        if(currentOrders.containsKey(book)) {
-//          ArrayList<Offer> offers = currentOrders.get(book);
-//          for(Offer o : offers) {
-//            System.out.println(book + "," + o.getSeller().getLocalName() + "," + o.getPrice());
-//          }
-//        }
-//        else {
-//          System.out.println("No offers for " + book);
-//        }
-//      }
-//      return 0;
-//    }
-//
-//  }
-//  
-  
-  
-//  public class EndDay extends OneShotBehaviour {
-//    // This came from the buyer agent example. Probably not necessary for this agent
-//    
-//    public EndDay(Agent a) {
-//      super(a);
-//    }
-//
-//    @Override
-//    public void action() {
-//      // Inform the other agents we are communicating with that we are done
-//      ACLMessage supplierDone = new ACLMessage(ACLMessage.INFORM);
-//      supplierDone.setContent("done");
-//      for(AID supplier : suppliers) {
-//        supplierDone.addReceiver(supplier);
-//      }
-//      myAgent.send(supplierDone);
-//      
-//      ACLMessage customerDone = new ACLMessage(ACLMessage.INFORM);
-//      customerDone.setContent("done");
-//      for(AID customer : customers) {
-//        customerDone.addReceiver(customer);
-//      }
-//      myAgent.send(customerDone);
-//      
-//      
-//     
-//     // Inform the ticker agent that we are done 
-//      ACLMessage doneMsg = new ACLMessage(ACLMessage.INFORM);
-//      doneMsg.setContent("done");
-//      doneMsg.addReceiver(tickerAgent);
-//      myAgent.send(doneMsg);
-//  }
-  
+  public class EndDay extends OneShotBehaviour {
+    private static final long serialVersionUID = 1L;
+    
+    public EndDay(Agent a) {
+      super(a);
+    }
+
+    @Override
+    public void action() {
+      // Inform the ticker agent and the manufacturer that we are done 
+      ACLMessage doneMsg = new ACLMessage(ACLMessage.INFORM);
+      doneMsg.setContent("done");
+      doneMsg.addReceiver(tickerAgent);
+      for(AID supplier : suppliers) {
+        doneMsg.addReceiver(supplier);
+      }
+      
+      myAgent.send(doneMsg);
+    }
+  }
   
 //  public class EndDayListener extends CyclicBehaviour {
 //    private static final long serialVersionUID = 1L;
@@ -826,24 +728,4 @@ public class ManufactAgent extends Agent {
 //      }
 //    }
 //  }
-  
-  public class EndDay extends OneShotBehaviour {
-    private static final long serialVersionUID = 1L;
-    
-    public EndDay(Agent a) {
-      super(a);
-    }
-
-    @Override
-    public void action() {
-      // Inform the ticker agent and the manufacturer that we are done 
-      ACLMessage doneMsg = new ACLMessage(ACLMessage.INFORM);
-      doneMsg.setContent("done");
-      doneMsg.addReceiver(tickerAgent);
-//      doneMsg.addReceiver(manufacturer);
-      // TODO: remove the "done" message passing from agents to manufac
-      
-      myAgent.send(doneMsg);
-    }
-  }
 }

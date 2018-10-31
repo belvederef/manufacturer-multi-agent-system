@@ -13,7 +13,7 @@ import napier.ac.uk_ontology.concepts.Order;
 
 
 // Action. The manufacturer sends the order to the buyer
-public class ShipOrder implements AgentAction {
+public class DELETE_ShipOrder implements AgentAction {
   private static final long serialVersionUID = 1L;
   
   private AID buyer;

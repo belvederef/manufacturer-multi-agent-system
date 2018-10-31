@@ -4,7 +4,8 @@ import jade.content.onto.BeanOntology;
 import jade.content.onto.BeanOntologyException;
 import jade.content.onto.Ontology;
 
-public class ShopOntology extends BeanOntology{
+public class ShopOntology extends BeanOntology {
+  private static final long serialVersionUID = 1L;
   
   private static Ontology instance = new ShopOntology("my_ontology");
   

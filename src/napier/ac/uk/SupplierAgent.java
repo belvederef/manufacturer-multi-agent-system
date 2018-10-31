@@ -27,6 +27,7 @@ import napier.ac.uk_ontology.ShopOntology;
 import napier.ac.uk_ontology.actions.BuyComponent;
 import napier.ac.uk_ontology.concepts.ComputerComponent;
 import napier.ac.uk_ontology.predicates.OwnsComponent;
+import napier.ac.uk_ontology.predicates.ShipComponent;
 
 public abstract class SupplierAgent extends Agent {
   private static final long serialVersionUID = 1L;
@@ -155,10 +156,13 @@ public abstract class SupplierAgent extends Agent {
 
     @Override
     public void action() {
-      MessageTemplate mt = MessageTemplate.MatchPerformative(ACLMessage.QUERY_IF);
+      MessageTemplate mt = MessageTemplate.and(
+          MessageTemplate.MatchPerformative(ACLMessage.QUERY_IF),
+          MessageTemplate.MatchConversationId("component-selling"));
       ACLMessage msg = myAgent.receive(mt);
-      System.out.println("In supplier offerserver. msg: " + msg);
+      
       if (msg != null) {
+        System.out.println("In supplier offerserver. msg: " + msg);
         try {
           ContentElement ce = null;
 
@@ -180,6 +184,7 @@ public abstract class SupplierAgent extends Agent {
             componentsApproved.put(msg.getSender(), component); // Add to list of components that we said yes to, but
                                                                 // not yet confirmed
             reply.setPerformative(ACLMessage.CONFIRM);
+            reply.setConversationId("component-selling");
 
             System.out.println("\nSending response to the manufacturer. We own the component. reply: " + reply);
             myAgent.send(reply);
@@ -205,8 +210,11 @@ public abstract class SupplierAgent extends Agent {
     @Override
     public void action() {
       // This behaviour should only respond to REQUEST messages
-      MessageTemplate mt = MessageTemplate.MatchPerformative(ACLMessage.REQUEST);
+      MessageTemplate mt = MessageTemplate.and(
+          MessageTemplate.MatchPerformative(ACLMessage.REQUEST),
+          MessageTemplate.MatchConversationId("component-selling"));
       ACLMessage msg = receive(mt);
+      
       if (msg != null) {
         try {
           ContentElement ce = null;
@@ -226,10 +234,11 @@ public abstract class SupplierAgent extends Agent {
               // TODO: check that componentsForSale is different for every supplier
               System.out.println("componentsForSale: " + componentsForSale);
               if (componentsForSale.containsKey(component)) {
-                System.out.println("\nSelling component " + component + " to " + orderedComponent.getBuyer());
-                // TODO: Send with a predicate
-                
-                // Could simply  send a message
+                if (sendComponent(component, orderedComponent.getBuyer())) {
+                  System.out.println("\nSent component " + component + " to " + orderedComponent.getBuyer());
+                } else {
+                  System.out.println("\nCould not send component " + component + " to " + orderedComponent.getBuyer());
+                }
               }
             }
           }
@@ -244,6 +253,34 @@ public abstract class SupplierAgent extends Agent {
       } else {
         block();
       }
+    }
+    
+    
+    private Boolean sendComponent(ComputerComponent component, AID buyer) {
+      // Prepare the INFORM message.
+      ACLMessage msg = new ACLMessage(ACLMessage.INFORM);
+      msg.setLanguage(codec.getName());
+      msg.setOntology(ontology.getName()); 
+      msg.setConversationId("component-selling");
+      msg.addReceiver(buyer);
+      
+      ShipComponent shipComponent = new ShipComponent();
+      shipComponent.setBuyer(buyer);
+      shipComponent.setComponent(component);
+      
+      try {
+        // Fill content
+        getContentManager().fillContent(msg, shipComponent);
+        send(msg);
+        return true;
+       }
+       catch (CodecException ce) {
+        ce.printStackTrace();
+       }
+       catch (OntologyException oe) {
+        oe.printStackTrace();
+       } 
+      return false;
     }
 
   }
