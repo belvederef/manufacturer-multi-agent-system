@@ -112,13 +112,11 @@ public class CustomerAgent extends Agent {
           dailyActivity.addSubBehaviour(new EndDay(myAgent));
           
           myAgent.addBehaviour(dailyActivity);
-        }
-        else {
+        } else {
           // Termination message to end simulation
           myAgent.doDelete();
         }
-      }
-      else{
+      } else {
         block();
       }
     }
@@ -293,6 +291,9 @@ public class CustomerAgent extends Agent {
           catch (OntologyException oe) {
            oe.printStackTrace();
           } 
+        } else if(msg.getPerformative() == ACLMessage.REFUSE) {
+          // The order was not accepted
+          System.out.println("\nThe order was not accepted! Costumer " + myAgent.getLocalName() + " is done.");
         }
       } else {
         block();

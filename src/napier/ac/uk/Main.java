@@ -28,6 +28,8 @@ public class Main {
       }
       	      
 			// Create the three suppliers
+      // TODO: instead of doing this, I could read the prices from a csv file and just use the same supplier agent
+      // and pass the different list of prices as an argument
       AgentController supplierSlow = myContainer.createNewAgent("supplierSlow", 
           SupplierSlowAgent.class.getCanonicalName(), null);
       AgentController supplierMed = myContainer.createNewAgent("supplierMed", 

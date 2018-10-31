@@ -24,11 +24,6 @@ import jade.domain.FIPAAgentManagement.DFAgentDescription;
 import jade.domain.FIPAAgentManagement.ServiceDescription;
 import jade.lang.acl.ACLMessage;
 import jade.lang.acl.MessageTemplate;
-import napier.ac.uk.CustomerAgent.AskIfCanManufacture;
-import napier.ac.uk.CustomerAgent.CreateOrder;
-import napier.ac.uk.CustomerAgent.EndDay;
-import napier.ac.uk.CustomerAgent.FindManufacturers;
-import napier.ac.uk.CustomerAgent.MakeOrderAction;
 import napier.ac.uk_ontology.ShopOntology;
 import napier.ac.uk_ontology.elements.Computer;
 import napier.ac.uk_ontology.elements.Order;
@@ -57,7 +52,6 @@ public class ManufactAgent extends Agent {
   private ArrayList<ComputerComponent> componentsAvailable = new ArrayList<>(); // components available to build computers
   
   private AID tickerAgent;
-  private int askIfCanBuyCount = 0;
   
   @Override
   protected void setup() {
@@ -123,6 +117,14 @@ public class ManufactAgent extends Agent {
             // are predicates that respond to the actions. I can use an INFORM message that contains 
             // those predicates
           
+          // TODO: explain in the paper that we developed the app in a very simplistic way, not ideal
+          // for real world usage. This is because customers could make orders at any time during a day,
+          // we do not account for that because after customers are found we do not keep searching.
+          // Also, we do not account for failure. If one of the agents suddenly stopped functioning, the
+          // other agents, who depend on the responses of some other agents will be stuck in a loop.
+          // A proposed solution would be to use cyclic behaviours for every behaviour so that any
+          // of them could receive new input. 
+          
           
           // Spawn a new sequential behaviour for the day's activities
           SequentialBehaviour dailyActivity = new SequentialBehaviour();
@@ -137,13 +139,11 @@ public class ManufactAgent extends Agent {
           dailyActivity.addSubBehaviour(new EndDay(myAgent));
           
           myAgent.addBehaviour(dailyActivity);
-        }
-        else {
+        } else {
           //termination message to end simulation
           myAgent.doDelete();
         }
-      }
-      else{
+      } else {
         block();
       }
     }
@@ -205,11 +205,13 @@ public class ManufactAgent extends Agent {
     }
   }
   
-  private class OrderReplyBehaviour extends CyclicBehaviour{
+  private class OrderReplyBehaviour extends Behaviour{
     private static final long serialVersionUID = 1L;
     
+    private int repliesSent = 0;
+    
     // This behaviour accepts or decline an order offer
-    // It cycles until the behaviour is not removed at the end of the day
+    // It cycles until responses from all customers have been received
     public OrderReplyBehaviour(Agent a) {
       super(a);
     }
@@ -217,8 +219,6 @@ public class ManufactAgent extends Agent {
     @Override
     public void action() {
       //This behaviour should only respond to QUERY_IF messages
-      // TODO: once we reply saying yes, the customer should make an order with an 
-      // action called "MakeOrder". Query_if asks only if true or false
       MessageTemplate mt = MessageTemplate.MatchPerformative(ACLMessage.QUERY_IF); 
       ACLMessage msg = receive(mt);
       if(msg != null){
@@ -236,7 +236,7 @@ public class ManufactAgent extends Agent {
             Order order = canManifacture.getOrder();
             Computer computer = (Computer) order.getComputer();
             
-            // Extract the computer specs and print them to demonstrate use of the ontology
+            // Extract the computer specs and print them
             System.out.println("The computer ordered is " + computer.toString());
             
             
@@ -259,11 +259,13 @@ public class ManufactAgent extends Agent {
       				reply.setContent("Accepted");
       				
       				System.out.println("\nSending response to the customer. We accept.");
-      			}
-      			else {
+      			} else {
       				reply.setPerformative(ACLMessage.DISCONFIRM);
       			}
       			myAgent.send(reply);
+      			repliesSent++;
+          } else {
+              System.out.println("Unknown predicate " + ce.getClass().getName());
           }
         }
         catch (CodecException ce) {
@@ -276,11 +278,23 @@ public class ManufactAgent extends Agent {
         block();
       }
     }
+
+    @Override
+    public boolean done() {
+      // TODO: dev only
+      if (repliesSent == customers.size()) {
+        System.out.println("OrderReplyBehaviour is done. done is true");  
+      }
+      
+      return repliesSent == customers.size();
+    }
   }
   
   
-  private class CollectOrderRequests extends CyclicBehaviour{
+  private class CollectOrderRequests extends Behaviour{
     private static final long serialVersionUID = 1L;
+    
+    private int ordersReceived = 0;
     
     // This behaviour accepts the requests for the order it has accepted in the previous query_if
     // This behaviour accepts the order requests we said yes to, if the customer still wants them
@@ -305,8 +319,6 @@ public class ManufactAgent extends Agent {
             if (action instanceof MakeOrder) {
               MakeOrder makeOrder = (MakeOrder)action;
               
-              // TODO: the components of the orders added to ordersConfirmed should be bought in the next step
-              
               // if the same combination AID + order is present in the ordersApproved, move it from approved to
               // confirmed
               int idxOrder = ordersApproved.get(makeOrder.getBuyer()).indexOf(makeOrder.getOrder());
@@ -330,10 +342,13 @@ public class ManufactAgent extends Agent {
                   orderListConf.add(orderToMove);
                   ordersConfirmed.put(makeOrder.getBuyer(), orderListConf);
                 }
-                askIfCanBuyCount++;
+                ordersReceived++;
                 System.out.println("\nAdded to confirmed orders. List of confirmed orders at the end of CollectOrderRequests is: " + ordersConfirmed);
                 
-              } 
+              } else {
+                // If the order was not approved in the previous step, don't accept order request
+                System.out.println("\nThis order was not approved! Cannot process order!");
+              }
             }
           }
         } catch (CodecException ce) {
@@ -342,12 +357,21 @@ public class ManufactAgent extends Agent {
           oe.printStackTrace();
         } catch (Exception e) {
           e.printStackTrace();
-          System.out.println("You should ask nicely first! Order not approved");
         }
-      }
-      else{
+      } else {
+        // If no message is received
         block();
       }
+    }
+
+    @Override
+    public boolean done() {
+      // TODO: dev only
+      if (ordersReceived == customers.size()) {
+        System.out.println("CollectOrderRequests is done. done is true");  
+      }
+      
+      return ordersReceived == customers.size();
     }
   }
   
@@ -391,8 +415,11 @@ public class ManufactAgent extends Agent {
 //  }
   
   
-  public class AskIfCanBuy extends CyclicBehaviour {
+  public class AskIfCanBuy extends Behaviour {
     private static final long serialVersionUID = 1L;
+    
+    // TODO: This should be equal to the number or components that I need to query
+    private int queryCount = 0;
 
     public AskIfCanBuy(Agent a) {
       super(a);
@@ -409,49 +436,51 @@ public class ManufactAgent extends Agent {
       // this should only run if something along the lines of this happens: 
       // for each of the components that I need, if I didnt ask for that component yet or if
       // my question did not get accepted, keep asking
-      System.out.println("askIfCanBuyCount: " + askIfCanBuyCount);
-      if (askIfCanBuyCount > 0) {
-        ACLMessage msg = new ACLMessage(ACLMessage.QUERY_IF);
-        msg.setLanguage(codec.getName());
-        msg.setOntology(ontology.getName()); 
-        msg.setConversationId("manufacturer-order");
-        msg.addReceiver(suppliers.get(0));
-        
-        OwnsComponent ownsComp = new OwnsComponent();
-        ownsComp.setOwner(suppliers.get(0));
-        if (ordersConfirmed.isEmpty()) {
-          block();
-          return;  
-        }
-        
-        try {
-          // TODO: NOTE the null exception error will go once I change stuff like customers.get(0) with 
-          // actual implementation. remove if checks when that happens
-          // Lets take into consideration the orders of the first customer
-          ArrayList<Order> firstCustOrders = ordersConfirmed.get(customers.get(0));
-          
-          System.out.println("Ask the supplier if they have the component in stock. In AskIfCanBuy");
-          System.out.println("In AskIfCanBuy. firstCustOrders: " + firstCustOrders);
-          
-          if (firstCustOrders == null || firstCustOrders.isEmpty()) {
-            block(); 
-            return;
-          }
-          ownsComp.setComponent(firstCustOrders.get(0).getComputer().getCpu()); // Loop to ask about all components of an order
-          
-          // Let JADE convert from Java objects to string
-          getContentManager().fillContent(msg, ownsComp);
-          send(msg);
-          askIfCanBuyCount--;
-        
-         } catch (CodecException ce) {
-          ce.printStackTrace();
-         } catch (OntologyException oe) {
-          oe.printStackTrace();
-         } catch (Exception e) {
-           e.printStackTrace();
-         }
+      ACLMessage msg = new ACLMessage(ACLMessage.QUERY_IF);
+      msg.setLanguage(codec.getName());
+      msg.setOntology(ontology.getName()); 
+      msg.setConversationId("manufacturer-order");
+      msg.addReceiver(suppliers.get(0));
+      
+      OwnsComponent ownsComp = new OwnsComponent();
+      ownsComp.setOwner(suppliers.get(0));
+      if (ordersConfirmed.isEmpty()) {
+        return;  
       }
+      
+      try {
+        // TODO: NOTE the null exception error will go once I change stuff like customers.get(0) with 
+        // actual implementation. remove if checks when that happens
+        // Lets take into consideration the orders of the first customer
+        ArrayList<Order> firstCustOrders = ordersConfirmed.get(customers.get(0));
+        
+        System.out.println("Ask the supplier if they have the component in stock. In AskIfCanBuy");
+        System.out.println("In AskIfCanBuy. firstCustOrders: " + firstCustOrders);
+        
+        if (firstCustOrders == null || firstCustOrders.isEmpty()) {
+          block(); 
+          return;
+        }
+        ownsComp.setComponent(firstCustOrders.get(0).getComputer().getCpu()); // Loop to ask about all components of an order
+        
+        // Let JADE convert from Java objects to string
+        getContentManager().fillContent(msg, ownsComp);
+        send(msg);
+        queryCount++;
+      
+       } catch (CodecException ce) {
+        ce.printStackTrace();
+       } catch (OntologyException oe) {
+        oe.printStackTrace();
+       } catch (Exception e) {
+         e.printStackTrace();
+       }
+    }
+
+    @Override
+    public boolean done() {
+      // TODO: change this
+      return queryCount >= 1;
     }
   }
 
@@ -464,7 +493,9 @@ public class ManufactAgent extends Agent {
     
     // TODO: using the boolean value below only works if we are dealing with one supplier!
     // Change logic for dealing with more suppliers
-    private Boolean replyReceived = false;
+    
+    // TODO: This should be equal to the number of components that I need to request
+    private int requestsSent = 0;
     
     public BuyComponentAction(Agent a) {
       super(a);
@@ -484,7 +515,7 @@ public class ManufactAgent extends Agent {
       ACLMessage msg = myAgent.receive(mt);
       System.out.println("\nmessage received in BuyComponentAction is: " + msg);
       if(msg != null) {
-        replyReceived = true;
+//        replyReceived = true;
         if(msg.getPerformative() == ACLMessage.CONFIRM) {
           // The order was accepted
           System.out.println("\nThe supplier accepted the component order! YAY! Now making request...");
@@ -510,6 +541,7 @@ public class ManufactAgent extends Agent {
   
              getContentManager().fillContent(orderMsg, request); //send the wrapper object
              send(orderMsg);
+             requestsSent++;
              System.out.println("Sending order request to supplier. msg is: " + orderMsg);
              // Add this order to the list of ordered components that we are awaiting to receive
              componentsOrdered.add(firstCustOrders.get(0).getComputer().getCpu()); 
@@ -520,6 +552,9 @@ public class ManufactAgent extends Agent {
           catch (OntologyException oe) {
            oe.printStackTrace();
           } 
+        } else if(msg.getPerformative() == ACLMessage.REFUSE) {
+          // The order was not accepted
+          System.out.println("\nThe supplier did not accept the component order!");
         }
       } else {
         block();
@@ -528,8 +563,9 @@ public class ManufactAgent extends Agent {
 
     @Override
     public boolean done() {
-      System.out.println("BuyComponentAction is done. replyReceived is: " + replyReceived);
-      return replyReceived;
+      System.out.println("BuyComponentAction is done. requestsSent is: " + requestsSent);
+      // TODO: change this
+      return requestsSent >= 1;
     }
 
     @Override
@@ -744,52 +780,52 @@ public class ManufactAgent extends Agent {
 //  }
   
   
-  public class EndDayListener extends CyclicBehaviour {
-    private static final long serialVersionUID = 1L;
-    
-    private int customerFinished = 0;
-//    private int supplierFinished = 0;
-    private List<Behaviour> toRemove;
-    
-    public EndDayListener(Agent a, List<Behaviour> toRemove) {
-      super(a);
-      this.toRemove = toRemove;
-    }
-
-    @Override
-    public void action() {
-      MessageTemplate mt = MessageTemplate.MatchContent("done");
-      ACLMessage msg = myAgent.receive(mt);
-      if(msg != null) {
-        customerFinished++;
-      } else {
-        block();
-      }
-      
-      if(customerFinished == customers.size()) {
-        // We are finished when we have received a finish message from all customers
-        // Inform the ticker agent that we are done 
-        ACLMessage doneMsg = new ACLMessage(ACLMessage.INFORM);
-        doneMsg.setContent("done");
-        doneMsg.addReceiver(tickerAgent);
-        myAgent.send(doneMsg);
-        
-        // Inform the suppliers that we are done
-        ACLMessage supplierDone = new ACLMessage(ACLMessage.INFORM);
-        supplierDone.setContent("done");
-        for(AID supplier : suppliers) {
-          supplierDone.addReceiver(supplier);
-        }
-        myAgent.send(supplierDone);
-        
-        // Remove cyclic behaviours
-        for(Behaviour b : toRemove) {
-          myAgent.removeBehaviour(b);
-        }
-        myAgent.removeBehaviour(this);
-      }
-    }
-  }
+//  public class EndDayListener extends CyclicBehaviour {
+//    private static final long serialVersionUID = 1L;
+//    
+//    private int customerFinished = 0;
+////    private int supplierFinished = 0;
+//    private List<Behaviour> toRemove;
+//    
+//    public EndDayListener(Agent a, List<Behaviour> toRemove) {
+//      super(a);
+//      this.toRemove = toRemove;
+//    }
+//
+//    @Override
+//    public void action() {
+//      MessageTemplate mt = MessageTemplate.MatchContent("done");
+//      ACLMessage msg = myAgent.receive(mt);
+//      if(msg != null) {
+//        customerFinished++;
+//      } else {
+//        block();
+//      }
+//      
+//      if(customerFinished == customers.size()) {
+//        // We are finished when we have received a finish message from all customers
+//        // Inform the ticker agent that we are done 
+//        ACLMessage doneMsg = new ACLMessage(ACLMessage.INFORM);
+//        doneMsg.setContent("done");
+//        doneMsg.addReceiver(tickerAgent);
+//        myAgent.send(doneMsg);
+//        
+//        // Inform the suppliers that we are done
+//        ACLMessage supplierDone = new ACLMessage(ACLMessage.INFORM);
+//        supplierDone.setContent("done");
+//        for(AID supplier : suppliers) {
+//          supplierDone.addReceiver(supplier);
+//        }
+//        myAgent.send(supplierDone);
+//        
+//        // Remove cyclic behaviours
+//        for(Behaviour b : toRemove) {
+//          myAgent.removeBehaviour(b);
+//        }
+//        myAgent.removeBehaviour(this);
+//      }
+//    }
+//  }
   
   public class EndDay extends OneShotBehaviour {
     private static final long serialVersionUID = 1L;
@@ -805,6 +841,7 @@ public class ManufactAgent extends Agent {
       doneMsg.setContent("done");
       doneMsg.addReceiver(tickerAgent);
 //      doneMsg.addReceiver(manufacturer);
+      // TODO: remove the "done" message passing from agents to manufac
       
       myAgent.send(doneMsg);
     }
