@@ -107,12 +107,16 @@ public class ManufactAgent extends Agent {
           tickerAgent = msg.getSender();
         }
         if(msg.getContent().equals("new day")) {
-          // TODO: Manufacturer should use a sequential behaviour!!!
+          // TODO: Manufacturer should use a sequential behaviour!!! Only supplier should be cyclic
+            // The manufacturer can be totally synchronous for the scope of this coursework
+          // I can use a for loop in a one shot behav to a request for all the components I need 
           // Assume the agents will never fail, so always get a response
           // Introduce the conversation id to match the correct messages
           // Can match on the predicate/action as well using get getContentManager().extractContent
           // have a look at the JADE response things that Simon said, so that ShipOrder or ShipComponent
-            // are predicates that respond to the actions.
+            // are predicates that respond to the actions. I can use an INFORM message that contains 
+            // those predicates
+
           myAgent.addBehaviour(new FindSuppliers(myAgent));
           myAgent.addBehaviour(new FindCustomers(myAgent));
           
