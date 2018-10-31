@@ -23,17 +23,17 @@ import jade.domain.FIPAAgentManagement.ServiceDescription;
 import jade.lang.acl.ACLMessage;
 import jade.lang.acl.MessageTemplate;
 import napier.ac.uk_ontology.ShopOntology;
-import napier.ac.uk_ontology.elements.Computer;
-import napier.ac.uk_ontology.elements.Desktop;
-import napier.ac.uk_ontology.elements.Laptop;
-import napier.ac.uk_ontology.elements.Order;
-import napier.ac.uk_ontology.elements.actions.MakeOrder;
-import napier.ac.uk_ontology.elements.computerComponents.HardDrive;
-import napier.ac.uk_ontology.elements.computerComponents.Os;
-import napier.ac.uk_ontology.elements.computerComponents.OsLinux;
-import napier.ac.uk_ontology.elements.computerComponents.OsWindows;
-import napier.ac.uk_ontology.elements.computerComponents.Ram;
-import napier.ac.uk_ontology.elements.predicates.CanManufacture;
+import napier.ac.uk_ontology.actions.MakeOrder;
+import napier.ac.uk_ontology.computerComponents.HardDrive;
+import napier.ac.uk_ontology.computerComponents.Os;
+import napier.ac.uk_ontology.computerComponents.OsLinux;
+import napier.ac.uk_ontology.computerComponents.OsWindows;
+import napier.ac.uk_ontology.computerComponents.Ram;
+import napier.ac.uk_ontology.concepts.Computer;
+import napier.ac.uk_ontology.concepts.Desktop;
+import napier.ac.uk_ontology.concepts.Laptop;
+import napier.ac.uk_ontology.concepts.Order;
+import napier.ac.uk_ontology.predicates.CanManufacture;
 
 
 // TODO: Add logic to reset if this agent cannot find a manufacturer

@@ -15,10 +15,10 @@ public class ShopOntology extends BeanOntology{
   private ShopOntology(String name) {
     super(name);
     try {
-      add("napier.ac.uk_ontology.elements.predicates");
-      add("napier.ac.uk_ontology.elements.actions");
-      add("napier.ac.uk_ontology.elements.computerComponents");
-      add("napier.ac.uk_ontology.elements");
+      add("napier.ac.uk_ontology.concepts");
+      add("napier.ac.uk_ontology.predicates");
+      add("napier.ac.uk_ontology.actions");
+      add("napier.ac.uk_ontology.computerComponents");
     } catch (BeanOntologyException e) {
       e.printStackTrace();
     }

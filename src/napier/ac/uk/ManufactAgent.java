@@ -25,13 +25,13 @@ import jade.domain.FIPAAgentManagement.ServiceDescription;
 import jade.lang.acl.ACLMessage;
 import jade.lang.acl.MessageTemplate;
 import napier.ac.uk_ontology.ShopOntology;
-import napier.ac.uk_ontology.elements.Computer;
-import napier.ac.uk_ontology.elements.Order;
-import napier.ac.uk_ontology.elements.actions.BuyComponent;
-import napier.ac.uk_ontology.elements.actions.MakeOrder;
-import napier.ac.uk_ontology.elements.computerComponents.ComputerComponent;
-import napier.ac.uk_ontology.elements.predicates.CanManufacture;
-import napier.ac.uk_ontology.elements.predicates.OwnsComponent;
+import napier.ac.uk_ontology.actions.BuyComponent;
+import napier.ac.uk_ontology.actions.MakeOrder;
+import napier.ac.uk_ontology.concepts.Computer;
+import napier.ac.uk_ontology.concepts.ComputerComponent;
+import napier.ac.uk_ontology.concepts.Order;
+import napier.ac.uk_ontology.predicates.CanManufacture;
+import napier.ac.uk_ontology.predicates.OwnsComponent;
 
 // A manufacturer is both a buyer and a seller
 public class ManufactAgent extends Agent {

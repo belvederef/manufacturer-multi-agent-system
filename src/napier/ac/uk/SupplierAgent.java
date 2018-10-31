@@ -24,9 +24,9 @@ import jade.domain.FIPAAgentManagement.ServiceDescription;
 import jade.lang.acl.ACLMessage;
 import jade.lang.acl.MessageTemplate;
 import napier.ac.uk_ontology.ShopOntology;
-import napier.ac.uk_ontology.elements.actions.BuyComponent;
-import napier.ac.uk_ontology.elements.computerComponents.ComputerComponent;
-import napier.ac.uk_ontology.elements.predicates.OwnsComponent;
+import napier.ac.uk_ontology.actions.BuyComponent;
+import napier.ac.uk_ontology.concepts.ComputerComponent;
+import napier.ac.uk_ontology.predicates.OwnsComponent;
 
 public abstract class SupplierAgent extends Agent {
   private static final long serialVersionUID = 1L;
@@ -226,8 +226,9 @@ public abstract class SupplierAgent extends Agent {
               // TODO: check that componentsForSale is different for every supplier
               System.out.println("componentsForSale: " + componentsForSale);
               if (componentsForSale.containsKey(component)) {
-                System.out.println("\nSelling component" + component + " to " + orderedComponent.getBuyer());
-                // TODO: Ask, how to represent the selling of a thing? how to transfer object?
+                System.out.println("\nSelling component " + component + " to " + orderedComponent.getBuyer());
+                // TODO: Send with a predicate
+                
                 // Could simply  send a message
               }
             }

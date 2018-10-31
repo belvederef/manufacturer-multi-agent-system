@@ -4,16 +4,16 @@ import java.util.HashMap;
 
 import jade.core.AID;
 import napier.ac.uk.SupplierAgent.TickerWaiter;
-import napier.ac.uk_ontology.elements.computerComponents.ComputerComponent;
-import napier.ac.uk_ontology.elements.computerComponents.CpuDesktop;
-import napier.ac.uk_ontology.elements.computerComponents.CpuLaptop;
-import napier.ac.uk_ontology.elements.computerComponents.HardDrive;
-import napier.ac.uk_ontology.elements.computerComponents.MotherboardDesktop;
-import napier.ac.uk_ontology.elements.computerComponents.MotherboardLaptop;
-import napier.ac.uk_ontology.elements.computerComponents.OsLinux;
-import napier.ac.uk_ontology.elements.computerComponents.OsWindows;
-import napier.ac.uk_ontology.elements.computerComponents.Ram;
-import napier.ac.uk_ontology.elements.computerComponents.Screen;
+import napier.ac.uk_ontology.computerComponents.CpuDesktop;
+import napier.ac.uk_ontology.computerComponents.CpuLaptop;
+import napier.ac.uk_ontology.computerComponents.HardDrive;
+import napier.ac.uk_ontology.computerComponents.MotherboardDesktop;
+import napier.ac.uk_ontology.computerComponents.MotherboardLaptop;
+import napier.ac.uk_ontology.computerComponents.OsLinux;
+import napier.ac.uk_ontology.computerComponents.OsWindows;
+import napier.ac.uk_ontology.computerComponents.Ram;
+import napier.ac.uk_ontology.computerComponents.Screen;
+import napier.ac.uk_ontology.concepts.ComputerComponent;
 
 public class SupplierMedAgent extends SupplierAgent {
   private static final long serialVersionUID = 1L;
