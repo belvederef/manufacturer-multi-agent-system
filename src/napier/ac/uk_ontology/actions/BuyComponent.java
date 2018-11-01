@@ -10,6 +10,7 @@ public class BuyComponent implements AgentAction {
   
   private AID buyer;
   private ComputerComponent component;
+  private int quantity;
   
   @Slot(mandatory = true)
   public AID getBuyer() {
@@ -25,6 +26,11 @@ public class BuyComponent implements AgentAction {
   public void setComponent(ComputerComponent component) {
     this.component = component;
   }
-  
-  
+  @Slot(mandatory = true)
+  public int getQuantity() {
+    return quantity;
+  }
+  public void setQuantity(int quantity) {
+    this.quantity = quantity;
+  }
 }

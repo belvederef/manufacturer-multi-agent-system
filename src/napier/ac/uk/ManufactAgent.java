@@ -311,10 +311,37 @@ public class ManufactAgent extends Agent {
         break;
         
         
-//      case 1:
-//        // I
+      case 1:
+        // Query the supplier about the component cost to calc profit
+        
         // When querying the supplier about the cost, I can send a query specifying which components
-        // I need and the quantity I need. In that way I can get a quote on the total. 
+        // I need and the quantity I need. In that way I can get a quote on the total.
+        // Prepare the Query-IF message. Asks the manufacturer to if they will accept the order
+        ACLMessage msg = new ACLMessage(ACLMessage.QUERY_REF);
+        msg.setLanguage(codec.getName());
+        msg.setOntology(ontology.getName()); 
+        msg.setConversationId("price-enquiry");
+        for (AID supplier : suppliers) {
+          msg.addReceiver(supplier);
+        }
+        
+        CanManufacture canManufacture = new CanManufacture();
+//        canManufacture.setManufacturer(manufacturer);
+        canManufacture.setOrder(order);
+        
+        try {
+          // Let JADE convert from Java objects to string
+          getContentManager().fillContent(msg, canManufacture);
+          send(msg);
+         }
+         catch (CodecException ce) {
+          ce.printStackTrace();
+         }
+         catch (OntologyException oe) {
+          oe.printStackTrace();
+         } 
+        
+        
         
       case 2:
         // Profit on a single day 
