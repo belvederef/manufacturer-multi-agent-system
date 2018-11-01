@@ -10,7 +10,7 @@ public class Order implements Concept {
   
   private Computer computer; // All are the same computer, so list probably not needed. If list, use @AggregateSlot(cardMin = 1)
   private int quantity;
-  private float price;
+  private double price;
   private int dueInDays;
   
   @Slot(mandatory = true)
@@ -28,10 +28,10 @@ public class Order implements Concept {
     this.quantity = quantity;
   }
   @Slot(mandatory = true)
-  public float getPrice() {
+  public double getPrice() {
     return price;
   }
-  public void setPrice(float price) {
+  public void setPrice(double price) {
     this.price = price;
   }
   @Slot(mandatory = true)

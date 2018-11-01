@@ -37,7 +37,6 @@ import napier.ac.uk_ontology.predicates.CanManufacture;
 import napier.ac.uk_ontology.predicates.ShipOrder;
 
 
-// TODO: Add logic to reset if this agent cannot find a manufacturer
 public class CustomerAgent extends Agent {
   private static final long serialVersionUID = 1L;
   
@@ -45,7 +44,8 @@ public class CustomerAgent extends Agent {
   private Ontology ontology = ShopOntology.getInstance();
   
   private AID manufacturer;
-  private ArrayList<Order> currentOrders = new ArrayList<>(); // The orders that were accepted so far
+  private ArrayList<Order> currentOrders = new ArrayList<>(); // The orders that were accepted
+  private ArrayList<Order> receivedOrders = new ArrayList<>(); // The orders that were accepted
   private Order order; // The order for today
   private AID tickerAgent;
   @Override
@@ -112,7 +112,8 @@ public class CustomerAgent extends Agent {
 //          dailyActivity.addSubBehaviour(new ReceiveOrder(myAgent));
           dailyActivity.addSubBehaviour(new EndDay(myAgent));
           
-          myAgent.addBehaviour(new ReceiveOrder(myAgent));
+       // Made cyclic so we dont need to know the number of orders we are expecting for each day
+          myAgent.addBehaviour(new ReceiveOrder(myAgent)); 
           
           myAgent.addBehaviour(dailyActivity);
         } else {
@@ -201,8 +202,6 @@ public class CustomerAgent extends Agent {
         DFAgentDescription[] agentsList  = DFService.search(myAgent, manufacturerTemplate);
         if (agentsList.length > 0) {
           manufacturer = agentsList[0].getName(); // Get only the first manufacturer found 
-        } else {
-          // if no manufacturer is found, keep searching
         }
       }
       catch(FIPAException e) {
@@ -258,11 +257,7 @@ public class CustomerAgent extends Agent {
     }
 
     @Override
-    public void action() {
-      // TODO: should probably match on some ontology o al limite the conversation id with 
-      // msg.setConversationId("book-trade");
-//      MessageTemplate mt = MessageTemplate.MatchSender(manufacturer);
-      
+    public void action() {    
       // Match the conversation id and a confirm or disconfirm message
       MessageTemplate mt = MessageTemplate.and(
           MessageTemplate.MatchConversationId("customer-order"),
@@ -319,27 +314,18 @@ public class CustomerAgent extends Agent {
       System.out.println("MakeOrderAction is done. replyReceived is: " + replyReceived);
       return replyReceived;
     }
-
-    @Override
-    public int onEnd() {
-      // Do something on end
-      return 0;
-    }
-
   }
   
   
   public class ReceiveOrder extends CyclicBehaviour {
     private static final long serialVersionUID = 1L;
-    
-    private int receivedOrders = 0;
+    // TODO: do we need an action to transfer money to send when the order is received? Other agents
+    // can use it too
     
     public ReceiveOrder(Agent a) {
       super(a);
     }
     
-    // TODO: keep a list of orders with the AID of the manufacurer that has to send them to us.
-    // then pop() the order from the orders we are awaiting and add it to the orders received 
     @Override
     public void action() { 
       MessageTemplate mt = MessageTemplate.and(
@@ -359,15 +345,22 @@ public class CustomerAgent extends Agent {
             ShipOrder shipOrder = (ShipOrder) ce;
             Order order = (Order) shipOrder.getOrder();
 
-            // TODO: implement -> if order in current orders print message
+            int idxOrder = currentOrders.indexOf(order);
+            if (idxOrder != -1) {
+              System.out.println("customer " + myAgent.getLocalName() + " received order we were expecting");
+              currentOrders.remove(idxOrder);
+              receivedOrders.add(order);
+            } else {
+              // Not an order we were expecting
+              System.out.println("customer " + myAgent.getLocalName() + " received order we were not expecting");
+            }
+            
             // Extract the received component and print it
             System.out.println("\ncustomer " + getLocalName() + " received order " + order.toString());
-            receivedOrders++;
             
-            // transfer payment at reception of order
-
+            // TODO: transfer payment at reception of order
           } else {
-              System.out.println("Unknown predicate " + ce.getClass().getName());
+            System.out.println("Unknown predicate " + ce.getClass().getName());
           }
         }
         catch (CodecException ce) {
@@ -381,17 +374,9 @@ public class CustomerAgent extends Agent {
       }
       
     }
-//    @Override
-//    public boolean done() {
-//      // TODO Auto-generated method stub
-//      return receivedOrders >= 1;
-//    }
   }
   
-  
-  
-  
-  
+
   public class EndDay extends OneShotBehaviour {
     private static final long serialVersionUID = 1L;
     

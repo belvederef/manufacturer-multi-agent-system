@@ -38,17 +38,16 @@ public abstract class SupplierAgent extends Agent {
   private AID tickerAgent;
   private ArrayList<AID> buyers = new ArrayList<>();
 
-  private HashMap<AID, ComputerComponent> componentsApproved = new HashMap<>(); // List of the components order we said
-                                                                                // yes to
-  private HashMap<AID, ComputerComponent> componentsConfirmed = new HashMap<>(); // List of the components and the
-                                                                                 // agents that they are for
-
+  // List of the components order we said yes to
+  private HashMap<AID, ComputerComponent> componentsApproved = new HashMap<>(); 
+  // List of the components and the agents that they are for
+  private HashMap<AID, ComputerComponent> componentsConfirmed = new HashMap<>(); 
+  
   // These are overriden by the specific supplier implementations
   private int deliveryDays; // number of days for delivery
   protected HashMap<ComputerComponent, Integer> componentsForSale; // component, price
 
-  protected void setup() {
-  }
+  protected void setup() { }
 
   protected void register() {
     getContentManager().registerLanguage(codec);
@@ -81,7 +80,7 @@ public abstract class SupplierAgent extends Agent {
   public class TickerWaiter extends CyclicBehaviour {
     private static final long serialVersionUID = 1L;
 
-    // behaviour to wait for a new day
+    // behaviour that waits for a new day
     public TickerWaiter(Agent a) {
       super(a);
     }
@@ -140,11 +139,8 @@ public abstract class SupplierAgent extends Agent {
         } catch (FIPAException e) {
           e.printStackTrace();
         }
-
       }
-
     }
-
   }
 
   public class OffersServer extends CyclicBehaviour {
@@ -156,6 +152,7 @@ public abstract class SupplierAgent extends Agent {
 
     @Override
     public void action() {
+      // TODO: attach price with msg.setcontent()
       MessageTemplate mt = MessageTemplate.and(
           MessageTemplate.MatchPerformative(ACLMessage.QUERY_IF),
           MessageTemplate.MatchConversationId("component-selling"));
@@ -176,13 +173,11 @@ public abstract class SupplierAgent extends Agent {
             OwnsComponent ownsComponent = (OwnsComponent) ce;
             ComputerComponent component = (ComputerComponent) ownsComponent.getComponent();
 
-            // Extract the component print it to demonstrate use of the ontology
+            // Extract the component print it
             System.out.println("The component asked to supplier is " + component.toString());
 
             // Accept all questions, we have unlimited stock
             ACLMessage reply = msg.createReply();
-            componentsApproved.put(msg.getSender(), component); // Add to list of components that we said yes to, but
-                                                                // not yet confirmed
             reply.setPerformative(ACLMessage.CONFIRM);
             reply.setConversationId("component-selling");
 
@@ -220,9 +215,6 @@ public abstract class SupplierAgent extends Agent {
           ContentElement ce = null;
           System.out.println("\nmsg received in SellBehaviour is: " + msg.getContent()); // print out the message
                                                                                          // content in SL
-
-          // Let JADE convert from String to Java objects
-          // Output will be a ContentElement
           ce = getContentManager().extractContent(msg);
           if (ce instanceof Action) {
             Concept action = ((Action) ce).getAction();
@@ -300,14 +292,14 @@ public abstract class SupplierAgent extends Agent {
     public void action() {
       MessageTemplate mt = MessageTemplate.MatchContent("done");
       ACLMessage msg = myAgent.receive(mt);
-      System.out.println("buyers.size(): " + buyers.size());
+//      System.out.println("buyers.size(): " + buyers.size());
       if (msg != null) {
         buyersFinished++;
-        System.out.println("buyersFinished++: " + buyersFinished);
+//        System.out.println("buyersFinished++: " + buyersFinished);
       } else {
         block();
       }
-      // TODO: the supplier never goes past this. It gets blocked
+      
       if (buyersFinished == buyers.size()) {
         System.out.println("SUPPLIER " + myAgent.getName() + " IS DONE");
         // We are finished

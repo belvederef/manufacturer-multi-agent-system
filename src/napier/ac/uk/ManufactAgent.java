@@ -49,10 +49,12 @@ public class ManufactAgent extends Agent {
   // They can only ask, if we said yes then they could request us to complete the order.
   private HashMap<AID, ArrayList<Order>> ordersConfirmed = new HashMap<>(); // List of the orders and the agents that they are for
   
-  private ArrayList<ComputerComponent> componentsOrdered = new ArrayList<>(); // The orders that were accepted so far
-  private ArrayList<ComputerComponent> componentsAvailable = new ArrayList<>(); // components available to build computers
+  private HashMap<ComputerComponent, Integer> componentsOrdered = new HashMap<>(); // The orders accepted by supplier so far, quantity
+  private HashMap<ComputerComponent, Integer> componentsAvailable = new HashMap<>(); // components available to build computers, quantity
+  private HashMap<ComputerComponent, Integer> componentsReserved = new HashMap<>(); // components reserved for orders accepted, quantity
   
   private AID tickerAgent;
+  private int day = 0;
   
   @Override
   protected void setup() {
@@ -108,12 +110,10 @@ public class ManufactAgent extends Agent {
           tickerAgent = msg.getSender();
         }
         if(msg.getContent().equals("new day")) {
-          // TODO: Manufacturer should use a sequential behaviour!!! Only supplier should be cyclic
-            // The manufacturer can be totally synchronous for the scope of this coursework
+          // TODO:
+          
           // I can use a for loop in a one shot behav to a request for all the components I need 
           // Assume the agents will never fail, so always get a response
-          // Introduce the conversation id to match the correct messages
-          // Can match on the predicate/action as well using get getContentManager().extractContent
           // have a look at the JADE response things that Simon said, so that ShipOrder or ShipComponent
             // are predicates that respond to the actions. I can use an INFORM message that contains 
             // those predicates
@@ -125,6 +125,9 @@ public class ManufactAgent extends Agent {
           // other agents, who depend on the responses of some other agents will be stuck in a loop.
           // A proposed solution would be to use cyclic behaviours for every behaviour so that any
           // of them could receive new input. 
+          // TODO: explain in the report that for making the app simple we ask the full list of components
+          // to the supplier, whereas in a real system we would query the price only for the components that
+          // we need to buy
           
           
           // Spawn a new sequential behaviour for the day's activities
@@ -211,7 +214,12 @@ public class ManufactAgent extends Agent {
   private class OrderReplyBehaviour extends Behaviour{
     private static final long serialVersionUID = 1L;
     
+    
+    private Order order;
+    private ACLMessage msg;
+    private int step = 0;
     private int repliesSent = 0;
+    private double profit;
     
     // This behaviour accepts or decline an order offer
     // It cycles until responses from all customers have been received
@@ -221,68 +229,139 @@ public class ManufactAgent extends Agent {
     
     @Override
     public void action() {
-      //This behaviour should only respond to QUERY_IF messages
-      MessageTemplate mt = MessageTemplate.and(
-          MessageTemplate.MatchPerformative(ACLMessage.QUERY_IF),
-          MessageTemplate.MatchConversationId("customer-order"));
-      ACLMessage msg = receive(mt);
-      
-      if(msg != null){
-        try {
-          ContentElement ce = null;
-          
-          // Print out the message content in SL
-          System.out.println("\nMessage received by manufacturer from client" + msg.getContent()); 
+      switch (step) {
+      case 0:
+        // Receive order and calculate profit
+        // This behaviour should only respond to QUERY_IF messages
+        MessageTemplate mt = MessageTemplate.and(
+            MessageTemplate.MatchPerformative(ACLMessage.QUERY_IF),
+            MessageTemplate.MatchConversationId("customer-order"));
+        msg = receive(mt);
+        
+        if(msg != null){
+          try {
+            ContentElement ce = null;
+            
+            // Print out the message content in SL
+            System.out.println("\nMessage received by manufacturer from client" + msg.getContent()); 
 
-          // Let JADE convert from String to Java objects
-          // Output will be a ContentElement
-          ce = getContentManager().extractContent(msg);
-          if (ce instanceof CanManufacture) {
-            CanManufacture canManifacture = (CanManufacture) ce;
-            Order order = canManifacture.getOrder();
-            Computer computer = (Computer) order.getComputer();
-            
-            // Extract the computer specs and print them
-            System.out.println("The computer ordered is " + computer.toString());
-            
-            
-            // Accept all orders just for development
-      			ACLMessage reply = msg.createReply();
-      			msg.setConversationId("customer-order");
-      			if(true) { 
-      			  // TODO: build logic for accepting. e.g. if the supplier has the components in stock or we do
-      			  
-      			  // Add to list of orders that we said yes to, but not yet confirmed
-      			  if (ordersApproved.containsKey(msg.getSender())) {
-      			    // If customer has already made an order, add to that list
-      			    ordersApproved.get(msg.getSender()).add(order);
-      			  } else {
-      			    ArrayList<Order> orderList = new ArrayList<>();
-      			    orderList.add(order);
-      			    ordersApproved.put(msg.getSender(), orderList);
-      			  }
-      			  
-      				reply.setPerformative(ACLMessage.CONFIRM);
-      				
-      				System.out.println("\nSending response to the customer. We accept.");
-      			} else {
-      				reply.setPerformative(ACLMessage.DISCONFIRM);
-      			}
-      			myAgent.send(reply);
-      			repliesSent++;
-          } else {
-              System.out.println("Unknown predicate " + ce.getClass().getName());
+            // Let JADE convert from String to Java objects
+            // Output will be a ContentElement
+            ce = getContentManager().extractContent(msg);
+            if (ce instanceof CanManufacture) {
+              CanManufacture canManifacture = (CanManufacture) ce;
+              order = canManifacture.getOrder();
+              Computer computer = (Computer) order.getComputer();
+              
+              // Extract the computer specs and print them
+              System.out.println("The computer ordered is " + computer.toString());
+              
+              msg.setConversationId("customer-order");
+              
+//              ArrayList<ComputerComponent> componentsNeeded = new ArrayList<>();
+              
+              Boolean allCompsAvailable = true;
+              for (ComputerComponent comp : order.getComputer().getComponentList()) {
+                // If there are not enough components in the warehouse, flag as false
+                if(!componentsAvailable.containsKey(comp) && 
+                    componentsAvailable.get(comp) < order.getQuantity()) {
+                  allCompsAvailable = false;
+                }
+              }
+              
+              if(allCompsAvailable) {
+                // If all components are available, calculate profit. If positive, accept
+                // If I already have components available it is because I bought them from the
+                // cheap supplier, knowing that I would have needed them soon
+                
+                // Profit in this case is the price the customer pays minus what I paid for the
+                // components of the cheap supplier
+                // so as long as the price that the customer pays us is higher than the price we
+                // paid for the components, there is profit
+                
+                // minus what paid for comps can happen at the end of the day, so dont mind that for this 
+                // simple model. Can point that out in the report. 
+                
+//                double profitPerComputer = order.getPrice() / order.getQuantity();
+                profit = order.getPrice();
+                step = 2;
+              } else {
+                // Query the supplier for the needed components and then calcute profit
+                step = 1;
+              }
+              
+
+              
+
+              
+              
+            } else {
+                System.out.println("Unknown predicate " + ce.getClass().getName());
+            }
           }
+          catch (CodecException ce) {
+            ce.printStackTrace();
+          }
+          catch (OntologyException oe) {
+            oe.printStackTrace();
+          }
+        } else{
+          block();
         }
-        catch (CodecException ce) {
-          ce.printStackTrace();
+        break;
+        
+        
+//      case 1:
+//        // I
+        // When querying the supplier about the cost, I can send a query specifying which components
+        // I need and the quantity I need. In that way I can get a quote on the total. 
+        
+      case 2:
+        // Profit on a single day 
+//        TotalValueOfOrdersShipped(d)  – PenaltyForLateOrders(d) –
+//        WarehouseStorage(d) – SuppliesPurchased(d),
+        
+//        where TotalValueOfOrdersShipped(d)  is  the price of  all orders  shipped to  
+//        customers on  day d,  PenaltyForLateOrders(d) is  the penalty for any accepted  
+//        orders  where the due date  has passed  and they  have  not been  shipped as  of  the 
+//        end of  day d (Section  2.4), WarehouseStorage(d) is  the cost  of  all items currently 
+//        in  the warehouse that  did not arrive  on  day d (Section  2.3), and 
+//        SuppliesPurchased(d)  is  the cost  of  all components  purchased on  day d (Section  
+//        2.3).
+        
+//        For the initial evaluation  of  your  system  you may assume  that  the number  of  
+//        customers is 3 (c=3), the per-day late  delivery  penalty for an  order is  £50 
+//        (p=50), and the cost  of  warehouse storage per-day per-component is  £5  
+//        (w=5).
+        
+        
+        
+        // Send response
+          ACLMessage reply = msg.createReply();
+          if(true) { // if profit is positive
+            
+            
+            // Add to list of orders that we said yes to, but not yet confirmed
+            if (ordersApproved.containsKey(msg.getSender())) {
+              // If customer has already made an order, add to that list
+              ordersApproved.get(msg.getSender()).add(order);
+            } else {
+              ArrayList<Order> orderList = new ArrayList<>();
+              orderList.add(order);
+              ordersApproved.put(msg.getSender(), orderList);
+            }
+            
+            reply.setPerformative(ACLMessage.CONFIRM);
+            
+            System.out.println("\nSending response to the customer. We accept.");
+          } else {
+            reply.setPerformative(ACLMessage.DISCONFIRM);
+          }
+          myAgent.send(reply);
+          repliesSent++;
+          break;
+          
         }
-        catch (OntologyException oe) {
-          oe.printStackTrace();
-        }
-      } else{
-        block();
-      }
     }
 
     @Override
@@ -501,7 +580,6 @@ public class ManufactAgent extends Agent {
             orderMsg.setConversationId("component-selling");
             orderMsg.addReceiver(msg.getSender());
             
-            System.out.println("Sending order request to supplier1. msg is: " + orderMsg);
             // Lets take into consideration the orders of the first customer
             ArrayList<Order> firstCustOrders = ordersConfirmed.get(customers.get(0));
             
@@ -622,6 +700,7 @@ public class ManufactAgent extends Agent {
     public void action() {
       // for each order
       // If have enough components, manufacture components into an order and send to customer
+      // TODO: remove components from componentsAvailable list when using them
       
       AID cust = customers.get(0);
       Order order = ordersConfirmed.get(cust).get(0);
@@ -641,7 +720,7 @@ public class ManufactAgent extends Agent {
         getContentManager().fillContent(msg, shipOrder);
         send(msg);
         sentOrders++;
-        System.out.println("Sent order " + order + " to cust " + cust.getLocalName());
+        System.out.println("Sending order " + order + " to cust " + cust.getLocalName());
        }
        catch (CodecException ce) {
         ce.printStackTrace();
@@ -679,6 +758,7 @@ public class ManufactAgent extends Agent {
       }
       
       myAgent.send(doneMsg);
+      day++;
     }
   }
   

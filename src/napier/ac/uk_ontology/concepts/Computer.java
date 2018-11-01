@@ -1,5 +1,6 @@
 package napier.ac.uk_ontology.concepts;
 
+import java.util.ArrayList;
 import java.util.Objects;
 
 import jade.content.Concept;
@@ -27,6 +28,7 @@ public class Computer implements Concept {
   private Cpu cpu;
   private Motherboard motherboard;
   private Screen screen;
+  private ArrayList<ComputerComponent> componentList;
 
   @Slot (mandatory = true)
   public Ram getRam() {
@@ -70,6 +72,17 @@ public class Computer implements Concept {
   }
   public void setScreen(Screen screen) {
     this.screen = screen;
+  }
+  @Slot (mandatory = false)
+  public ArrayList<ComputerComponent> getComponentList() {
+    componentList = new ArrayList<>();
+    componentList.add(ram);
+    componentList.add(hardDrive);
+    componentList.add(os);
+    componentList.add(cpu);
+    componentList.add(motherboard);
+    componentList.add(screen);
+    return componentList;
   }
   
   @Override
