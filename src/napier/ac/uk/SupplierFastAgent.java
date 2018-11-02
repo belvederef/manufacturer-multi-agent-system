@@ -19,7 +19,6 @@ public class SupplierFastAgent extends SupplierAgent {
 //  private HashMap<String, Integer> componentsForSale = new HashMap<>(); // component, price
   private HashMap<ComputerComponent, Integer> componentsForSale; // component, price
   private String name; // The name can be 'slow', 'medium' or 'fast', also showing how long it takes to deliver
-  private int deliveryDays; // number of days for delivery
 
   public SupplierFastAgent() {
     
@@ -40,7 +39,7 @@ public class SupplierFastAgent extends SupplierAgent {
     super.componentsForSale.put(new OsWindows(), 75);
     super.componentsForSale.put(new OsLinux(), 0);
     
-    deliveryDays = 1;
+    super.deliveryDays = 1;
     name = "slow"; // pass name/speed
     System.out.println("Created fast supplier");
     

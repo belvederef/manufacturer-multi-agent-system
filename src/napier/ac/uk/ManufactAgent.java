@@ -5,6 +5,8 @@ import java.util.HashMap;
 
 import jade.content.Concept;
 import jade.content.ContentElement;
+import jade.content.abs.AbsPredicate;
+import jade.content.abs.AbsVariable;
 import jade.content.lang.Codec;
 import jade.content.lang.Codec.CodecException;
 import jade.content.lang.sl.SLCodec;
@@ -24,12 +26,14 @@ import jade.domain.FIPAAgentManagement.ServiceDescription;
 import jade.lang.acl.ACLMessage;
 import jade.lang.acl.MessageTemplate;
 import napier.ac.uk_ontology.ShopOntology;
+import napier.ac.uk_ontology.actions.AskSuppInfo;
 import napier.ac.uk_ontology.actions.BuyComponent;
 import napier.ac.uk_ontology.actions.MakeOrder;
 import napier.ac.uk_ontology.concepts.Computer;
 import napier.ac.uk_ontology.concepts.ComputerComponent;
 import napier.ac.uk_ontology.concepts.Order;
 import napier.ac.uk_ontology.predicates.CanManufacture;
+import napier.ac.uk_ontology.predicates.SendSuppInfo;
 import napier.ac.uk_ontology.predicates.OwnsComponent;
 import napier.ac.uk_ontology.predicates.ShipComponent;
 import napier.ac.uk_ontology.predicates.ShipOrder;
@@ -52,6 +56,9 @@ public class ManufactAgent extends Agent {
   private HashMap<ComputerComponent, Integer> componentsOrdered = new HashMap<>(); // The orders accepted by supplier so far, quantity
   private HashMap<ComputerComponent, Integer> componentsAvailable = new HashMap<>(); // components available to build computers, quantity
   private HashMap<ComputerComponent, Integer> componentsReserved = new HashMap<>(); // components reserved for orders accepted, quantity
+
+  private HashMap<AID, HashMap<ComputerComponent, Integer>> priceLists = new HashMap<>(); // suppliers pricelists
+  
   
   private AID tickerAgent;
   private int day = 0;
@@ -128,6 +135,9 @@ public class ManufactAgent extends Agent {
           // TODO: explain in the report that for making the app simple we ask the full list of components
           // to the supplier, whereas in a real system we would query the price only for the components that
           // we need to buy
+          
+          
+          priceLists.clear();
           
           
           // Spawn a new sequential behaviour for the day's activities
@@ -211,14 +221,16 @@ public class ManufactAgent extends Agent {
     }
   }
   
+  
   private class OrderReplyBehaviour extends Behaviour{
     private static final long serialVersionUID = 1L;
     
-    
     private Order order;
-    private ACLMessage msg;
+    MessageTemplate mt;
+    private ACLMessage msg; // TODO: might remove message from here and use one for each step
     private int step = 0;
     private int repliesSent = 0;
+    private int supplierListReceived = 0;
     private double profit;
     
     // This behaviour accepts or decline an order offer
@@ -233,7 +245,7 @@ public class ManufactAgent extends Agent {
       case 0:
         // Receive order and calculate profit
         // This behaviour should only respond to QUERY_IF messages
-        MessageTemplate mt = MessageTemplate.and(
+        mt = MessageTemplate.and(
             MessageTemplate.MatchPerformative(ACLMessage.QUERY_IF),
             MessageTemplate.MatchConversationId("customer-order"));
         msg = receive(mt);
@@ -263,14 +275,20 @@ public class ManufactAgent extends Agent {
               Boolean allCompsAvailable = true;
               for (ComputerComponent comp : order.getComputer().getComponentList()) {
                 // If there are not enough components in the warehouse, flag as false
-                if(!componentsAvailable.containsKey(comp) && 
-                    componentsAvailable.get(comp) < order.getQuantity()) {
+                if (comp == null) continue;
+                if(!componentsAvailable.containsKey(comp) || 
+                    (componentsAvailable.containsKey(comp) && 
+                     componentsAvailable.get(comp) < order.getQuantity())) {
                   allCompsAvailable = false;
+                  break;
                 }
               }
               
-              if(allCompsAvailable) {
-                // If all components are available, calculate profit. If positive, accept
+              if(!allCompsAvailable) {
+                // Query the supplier for the needed components and then calcute profit
+                step = 1;
+              } else {
+             // If all components are available, calculate profit. If positive, accept
                 // If I already have components available it is because I bought them from the
                 // cheap supplier, knowing that I would have needed them soon
                 
@@ -285,9 +303,6 @@ public class ManufactAgent extends Agent {
 //                double profitPerComputer = order.getPrice() / order.getQuantity();
                 profit = order.getPrice();
                 step = 2;
-              } else {
-                // Query the supplier for the needed components and then calcute profit
-                step = 1;
               }
               
 
@@ -305,34 +320,39 @@ public class ManufactAgent extends Agent {
           catch (OntologyException oe) {
             oe.printStackTrace();
           }
-        } else{
+        } else {
           block();
         }
         break;
         
         
       case 1:
-        // Query the supplier about the component cost to calc profit
+        // Asks the supplier to send a list of prices. Ask about speed of delivery
+        // Asks for the components for sale pricing list
         
         // When querying the supplier about the cost, I can send a query specifying which components
         // I need and the quantity I need. In that way I can get a quote on the total.
+        // Probably better to ask for the whole list of prices, easier for this model
         // Prepare the Query-IF message. Asks the manufacturer to if they will accept the order
-        ACLMessage msg = new ACLMessage(ACLMessage.QUERY_REF);
-        msg.setLanguage(codec.getName());
-        msg.setOntology(ontology.getName()); 
-        msg.setConversationId("price-enquiry");
+        
+        
+        
+        // Prepare the action request message
+        ACLMessage enquiryMsg = new ACLMessage(ACLMessage.REQUEST);
+        enquiryMsg.setLanguage(codec.getName());
+        enquiryMsg.setOntology(ontology.getName()); 
+        enquiryMsg.setConversationId("supplier-info");
         for (AID supplier : suppliers) {
-          msg.addReceiver(supplier);
+          enquiryMsg.addReceiver(supplier);
         }
         
-        CanManufacture canManufacture = new CanManufacture();
-//        canManufacture.setManufacturer(manufacturer);
-        canManufacture.setOrder(order);
+        AskSuppInfo askSuppInfo = new AskSuppInfo();
+        askSuppInfo.setBuyer(myAgent.getAID());
         
         try {
-          // Let JADE convert from Java objects to string
-          getContentManager().fillContent(msg, canManufacture);
-          send(msg);
+          getContentManager().fillContent(enquiryMsg, askSuppInfo);
+          send(enquiryMsg);
+          step++;
          }
          catch (CodecException ce) {
           ce.printStackTrace();
@@ -340,10 +360,62 @@ public class ManufactAgent extends Agent {
          catch (OntologyException oe) {
           oe.printStackTrace();
          } 
+        break;
         
         
-        
+
       case 2:
+        // Receive the price list from all suppliers      
+        mt = MessageTemplate.and(
+            MessageTemplate.MatchPerformative(ACLMessage.INFORM),
+            MessageTemplate.MatchConversationId("supplier-info"));
+        msg = receive(mt);
+        
+        if(msg != null){
+          try {
+            ContentElement ce = null;
+            
+            // Print out the message content in SL
+            System.out.println("\nMessage received by manufacturer from supplier: " + msg.getContent()); 
+
+            ce = getContentManager().extractContent(msg);
+            if (ce instanceof SendSuppInfo) {
+              SendSuppInfo sendSuppInfo = (SendSuppInfo) ce;
+              
+              AID supplier = sendSuppInfo.getSupplier();
+              HashMap<ComputerComponent, Integer> priceList = sendSuppInfo.getComponentsForSale();
+              int speed = sendSuppInfo.getSpeed();
+              
+              // Add to the known priceLists
+              priceLists.put(supplier, priceList);
+               
+              // Extract the computer specs and print them
+              System.out.println("Received price list is " + sendSuppInfo.getComponentsForSale().toString());
+              
+              supplierListReceived++;
+              
+              // If received list from all suppliers, go to next step
+              if(supplierListReceived == suppliers.size()) {
+                step = 3;
+              }
+              
+            } else {
+                System.out.println("Unknown predicate " + ce.getClass().getName());
+            }
+          }
+          catch (CodecException ce) {
+            ce.printStackTrace();
+          }
+          catch (OntologyException oe) {
+            oe.printStackTrace();
+          }
+        } else {
+          block();
+        }
+        break;
+        
+        
+      case 3:
         // Profit on a single day 
 //        TotalValueOfOrdersShipped(d)  – PenaltyForLateOrders(d) –
 //        WarehouseStorage(d) – SuppliesPurchased(d),
@@ -624,7 +696,7 @@ public class ManufactAgent extends Agent {
              requestsSent++;
              System.out.println("Sending order request to supplier. msg is: " + orderMsg);
              // Add this order to the list of ordered components that we are awaiting to receive
-             componentsOrdered.add(firstCustOrders.get(0).getComputer().getCpu()); 
+//             componentsOrdered.add(firstCustOrders.get(0).getComputer().getCpu()); 
           }
           catch (CodecException ce) {
            ce.printStackTrace();
@@ -689,7 +761,7 @@ public class ManufactAgent extends Agent {
             // Extract the received component and print it
             System.out.println("Received component " + component.toString());
             
-            componentsAvailable.add(component);
+//            componentsAvailable.add(component);
             componentsReceived++;
           } else {
               System.out.println("Unknown predicate " + ce.getClass().getName());

@@ -37,7 +37,7 @@ public class SupplierMedAgent extends SupplierAgent {
     super.componentsForSale.put(new OsWindows(), 75);
     super.componentsForSale.put(new OsLinux(), 0);
     
-    deliveryDays = 3;
+    super.deliveryDays = 3;
     name = "slow"; // pass name/speed
     System.out.println("Created medium supplier");
     

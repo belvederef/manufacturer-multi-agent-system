@@ -24,10 +24,13 @@ import jade.domain.FIPAAgentManagement.ServiceDescription;
 import jade.lang.acl.ACLMessage;
 import jade.lang.acl.MessageTemplate;
 import napier.ac.uk_ontology.ShopOntology;
+import napier.ac.uk_ontology.actions.AskSuppInfo;
 import napier.ac.uk_ontology.actions.BuyComponent;
 import napier.ac.uk_ontology.concepts.ComputerComponent;
+import napier.ac.uk_ontology.predicates.SendSuppInfo;
 import napier.ac.uk_ontology.predicates.OwnsComponent;
 import napier.ac.uk_ontology.predicates.ShipComponent;
+import napier.ac.uk_ontology.predicates.ShipOrder;
 
 public abstract class SupplierAgent extends Agent {
   private static final long serialVersionUID = 1L;
@@ -44,7 +47,7 @@ public abstract class SupplierAgent extends Agent {
   private HashMap<AID, ComputerComponent> componentsConfirmed = new HashMap<>(); 
   
   // These are overriden by the specific supplier implementations
-  private int deliveryDays; // number of days for delivery
+  protected int deliveryDays; // number of days for delivery
   protected HashMap<ComputerComponent, Integer> componentsForSale; // component, price
 
   protected void setup() { }
@@ -99,6 +102,10 @@ public abstract class SupplierAgent extends Agent {
 
           ArrayList<Behaviour> cyclicBehaviours = new ArrayList<>();
 
+          CyclicBehaviour rse = new ReplySuppEnquiry(myAgent);
+          myAgent.addBehaviour(rse);
+          cyclicBehaviours.add(rse);
+          
           CyclicBehaviour os = new OffersServer(myAgent);
           myAgent.addBehaviour(os);
           cyclicBehaviours.add(os);
@@ -143,6 +150,65 @@ public abstract class SupplierAgent extends Agent {
     }
   }
 
+  public class ReplySuppEnquiry extends CyclicBehaviour {
+    private static final long serialVersionUID = 1L;
+
+    public ReplySuppEnquiry(Agent a) {
+      super(a);
+    }
+
+    @Override
+    public void action() {
+      MessageTemplate mt = MessageTemplate.and(
+          MessageTemplate.MatchPerformative(ACLMessage.REQUEST),
+          MessageTemplate.MatchConversationId("supplier-info"));
+      ACLMessage msg = myAgent.receive(mt);
+      
+      if (msg != null) {
+        try {
+          ContentElement ce = null;
+          System.out.println("\nmsg received in ReplySuppEnquiry is: " + msg.getContent()); // print out the message
+                                                                                         // content in SL
+          ce = getContentManager().extractContent(msg);
+          if (ce instanceof Action) {
+            Concept action = ((Action) ce).getAction();
+            if (action instanceof AskSuppInfo) {
+//              AskSuppInfo askSuppInfo = (AskSuppInfo) action;
+              
+              // Prepare the INFORM message. Asks the manufacturer to if they will accept the order
+              ACLMessage reply = msg.createReply(); 
+              reply.setPerformative(ACLMessage.INFORM);
+              msg.setLanguage(codec.getName());
+              msg.setOntology(ontology.getName()); 
+//              msg.addReceiver(cust);
+              
+              SendSuppInfo sendSuppInfo = new SendSuppInfo();
+              sendSuppInfo.setComponentsForSale(componentsForSale);
+              sendSuppInfo.setSupplier(myAgent.getAID());
+              sendSuppInfo.setSpeed(deliveryDays);
+              
+              // Fill content
+              getContentManager().fillContent(msg, sendSuppInfo);
+              send(reply);
+             
+              System.out.println("\nSending response to the manufacturer with price list.");
+            }
+          }
+        }
+
+        catch (CodecException ce) {
+          ce.printStackTrace();
+        } catch (OntologyException oe) {
+          oe.printStackTrace();
+        }
+
+      } else {
+        block();
+      }
+    }
+  }
+  
+  // Replies that they own the number of components asked
   public class OffersServer extends CyclicBehaviour {
     private static final long serialVersionUID = 1L;
 
@@ -183,6 +249,8 @@ public abstract class SupplierAgent extends Agent {
 
             System.out.println("\nSending response to the manufacturer. We own the component. reply: " + reply);
             myAgent.send(reply);
+          } else {
+            System.out.println("Unknown predicate " + ce.getClass().getName());
           }
         } catch (CodecException ce) {
           ce.printStackTrace();
