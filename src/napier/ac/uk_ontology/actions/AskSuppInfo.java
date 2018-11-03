@@ -16,5 +16,4 @@ public class AskSuppInfo implements AgentAction {
   public void setBuyer(AID buyer) {
     this.buyer = buyer;
   }
-  
 }

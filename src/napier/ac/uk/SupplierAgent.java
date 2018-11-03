@@ -2,7 +2,9 @@ package napier.ac.uk;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Hashtable;
 import java.util.List;
+import java.util.Map;
 
 import jade.content.Concept;
 import jade.content.ContentElement;
@@ -171,24 +173,33 @@ public abstract class SupplierAgent extends Agent {
                                                                                          // content in SL
           ce = getContentManager().extractContent(msg);
           if (ce instanceof Action) {
-            Concept action = ((Action) ce).getAction();
+            Concept action = ((Action)ce).getAction();
             if (action instanceof AskSuppInfo) {
-//              AskSuppInfo askSuppInfo = (AskSuppInfo) action;
               
-              // Prepare the INFORM message. Asks the manufacturer to if they will accept the order
+              // Prepare the INFORM message. Sends own details to manufacturer
               ACLMessage reply = msg.createReply(); 
               reply.setPerformative(ACLMessage.INFORM);
-              msg.setLanguage(codec.getName());
-              msg.setOntology(ontology.getName()); 
-//              msg.addReceiver(cust);
               
+              // Can't send Hashmaps by message. Split in two lists
+              ArrayList<ComputerComponent> compsKeys = new ArrayList<>();
+              ArrayList<Long> compsVals = new ArrayList<>();
+              
+              for (Map.Entry<ComputerComponent, Integer> entry : componentsForSale.entrySet()) {
+                ComputerComponent key = entry.getKey();
+                long value = entry.getValue().longValue();
+                compsKeys.add(key);
+                compsVals.add(value);
+              }
+              
+              // Make message predicate
               SendSuppInfo sendSuppInfo = new SendSuppInfo();
-              sendSuppInfo.setComponentsForSale(componentsForSale);
               sendSuppInfo.setSupplier(myAgent.getAID());
               sendSuppInfo.setSpeed(deliveryDays);
+              sendSuppInfo.setComponentsForSaleKeys(compsKeys);
+              sendSuppInfo.setComponentsForSaleVal(compsVals);
               
               // Fill content
-              getContentManager().fillContent(msg, sendSuppInfo);
+              getContentManager().fillContent(reply, sendSuppInfo);
               send(reply);
              
               System.out.println("\nSending response to the manufacturer with price list.");

@@ -58,6 +58,7 @@ public class ManufactAgent extends Agent {
   private HashMap<ComputerComponent, Integer> componentsReserved = new HashMap<>(); // components reserved for orders accepted, quantity
 
   private HashMap<AID, HashMap<ComputerComponent, Integer>> priceLists = new HashMap<>(); // suppliers pricelists
+  private HashMap<AID, Integer> suppDeliveryDays= new HashMap<>(); // suppliers speed
   
   
   private AID tickerAgent;
@@ -334,9 +335,7 @@ public class ManufactAgent extends Agent {
         // I need and the quantity I need. In that way I can get a quote on the total.
         // Probably better to ask for the whole list of prices, easier for this model
         // Prepare the Query-IF message. Asks the manufacturer to if they will accept the order
-        
-        
-        
+               
         // Prepare the action request message
         ACLMessage enquiryMsg = new ACLMessage(ACLMessage.REQUEST);
         enquiryMsg.setLanguage(codec.getName());
@@ -349,9 +348,15 @@ public class ManufactAgent extends Agent {
         AskSuppInfo askSuppInfo = new AskSuppInfo();
         askSuppInfo.setBuyer(myAgent.getAID());
         
+        Action request = new Action();
+        request.setAction(askSuppInfo);
+        
         try {
-          getContentManager().fillContent(enquiryMsg, askSuppInfo);
-          send(enquiryMsg);
+          for (AID supplier : suppliers) {
+            request.setActor(supplier);
+            getContentManager().fillContent(enquiryMsg, request);
+            send(enquiryMsg);
+          }
           step++;
          }
          catch (CodecException ce) {
@@ -382,23 +387,32 @@ public class ManufactAgent extends Agent {
             if (ce instanceof SendSuppInfo) {
               SendSuppInfo sendSuppInfo = (SendSuppInfo) ce;
               
+              // Could not be able to send HashMaps by message. I am transforming the hashmap
+              // and two lists, keys and values. The end result is the same. Reassemble at this end
+              ArrayList<ComputerComponent> compsKeys = sendSuppInfo.getComponentsForSaleKeys();
+              ArrayList<Long> compsValues = sendSuppInfo.getComponentsForSaleVal();
+
+              // Info retrieved from message
               AID supplier = sendSuppInfo.getSupplier();
-              HashMap<ComputerComponent, Integer> priceList = sendSuppInfo.getComponentsForSale();
               int speed = sendSuppInfo.getSpeed();
+              HashMap<ComputerComponent, Integer> priceList = new HashMap<>();
+              for(int i=0; i<compsKeys.size(); i++) {
+                int price = compsValues.get(i).intValue();
+                priceList.put(compsKeys.get(i), price);
+              }
               
-              // Add to the known priceLists
-              priceLists.put(supplier, priceList);
-               
-              // Extract the computer specs and print them
-              System.out.println("Received price list is " + sendSuppInfo.getComponentsForSale().toString());
               
+              priceLists.put(supplier, priceList); // Add to the known priceLists
+              suppDeliveryDays.put(supplier, speed); // Add supplier speed for later reference
+              
+              System.out.println("Received price list is " + priceList);
               supplierListReceived++;
               
               // If received list from all suppliers, go to next step
               if(supplierListReceived == suppliers.size()) {
                 step = 3;
               }
-              
+
             } else {
                 System.out.println("Unknown predicate " + ce.getClass().getName());
             }

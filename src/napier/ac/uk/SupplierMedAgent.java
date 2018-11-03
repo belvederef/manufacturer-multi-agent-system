@@ -2,8 +2,6 @@ package napier.ac.uk;
 
 import java.util.HashMap;
 
-import jade.core.AID;
-import napier.ac.uk.SupplierAgent.TickerWaiter;
 import napier.ac.uk_ontology.computerComponents.CpuDesktop;
 import napier.ac.uk_ontology.computerComponents.CpuLaptop;
 import napier.ac.uk_ontology.computerComponents.HardDrive;
