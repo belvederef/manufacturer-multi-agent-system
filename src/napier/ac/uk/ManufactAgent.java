@@ -61,6 +61,8 @@ public class ManufactAgent extends Agent {
   private HashMap<AID, HashMap<ComputerComponent, Integer>> priceLists = new HashMap<>(); // suppliers pricelists
   private HashMap<AID, Integer> suppDeliveryDays= new HashMap<>(); // suppliers speed
   
+  private double dailyProfit = 0;
+  private double totalProfit = 0;
   
   private AID tickerAgent;
   private int day = 0;
@@ -383,9 +385,7 @@ public class ManufactAgent extends Agent {
               
               // Extract the computer specs and print them
               System.out.println("The computer ordered is " + computer.toString());
-              
               msg.setConversationId("customer-order");
-              
 //              ArrayList<ComputerComponent> componentsNeeded = new ArrayList<>();
               
               Boolean allCompsAvailable = true;
@@ -405,71 +405,71 @@ public class ManufactAgent extends Agent {
                 // Query the supplier for the needed components and then calcute profit
 //                step = 1;
 //              } else {
+              
              // If all components are available, calculate profit. If positive, accept
-                // If I already have components available it is because I bought them from the
-                // cheap supplier, knowing that I would have needed them soon
+            // If I already have components available it is because I bought them from the
+            // cheap supplier, knowing that I would have needed them
                 
-                // Profit in this case is the price the customer pays minus what I paid for the
-                // components of the cheap supplier
-                // so as long as the price that the customer pays us is higher than the price we
-                // paid for the components, there is profit
+            // Profit in this case is the price the customer pays minus what I paid for the
+            // components of the cheap supplier
+            // so as long as the price that the customer pays us is higher than the price we
+            // paid for the components, there is profit
                 
-                // minus what paid for comps can happen at the end of the day, so dont mind that for this 
-                // simple model. Can point that out in the report. 
-                
-//                TotalValueOfOrdersShipped(d)  – PenaltyForLateOrders(d) –
-//                WarehouseStorage(d) – SuppliesPurchased(d),
-                
-//                double profitPerComputer = order.getPrice() / order.getQuantity();
-                
+            // minus what paid for comps can happen at the end of the day, so dont mind that for this 
+            // simple model. Can point that out in the report. 
                 
               
-                // Calculate how much it would cost to get all the needed components for each supplier
-                // Keep in mind we might have components available already
               
-                // TODO: remove components already available from the total cost
-                // AID, cost for all components for all computers
-                HashMap <AID, Double> supplierCosts = new HashMap<>();
-                for (AID supplier : priceLists.keySet()) { // for each supplier
-                  double totCost = 0;
-                  for(ComputerComponent comp : order.getComputer().getComponentList()) { // Loop for all the components needed
-                    if (comp != null) { // Some component, like the laptop screen, can be null
-                      totCost += priceLists.get(supplier).get(comp);
-                    }
-                  }
-                  
-                  totCost *= order.getQuantity();
-                  supplierCosts.put(supplier, totCost);
-                }
-                
-                
-                // Pick the supplier that sells the components at the cheapest price, with the constraint that it needs
-                // to still deliver within the due days. ADVANCED: we can still accept order where the profit is still
-                // positive even though we will be fined for late delivery
-                int daysDue = order.getDueInDays();
-                
-                // TODO: recheck this. Look at the advanced note above
-                AID bestSupplier = null;
-                for (Entry<AID, Double> suppAndCost : supplierCosts.entrySet()) {
-                  if (bestSupplier == null 
-                      && suppDeliveryDays.get(suppAndCost.getKey()) <= daysDue) {
-                      // If there is no best supplier, get the first that can deliver within the time limit
-                    bestSupplier = suppAndCost.getKey();
-                  } else if (suppDeliveryDays.get(suppAndCost.getKey()) <= daysDue
-                      && suppAndCost.getValue() < supplierCosts.get(bestSupplier)) {
-                    // If can deliver within time constraint and cost is lower
-                    bestSupplier = suppAndCost.getKey();
+              // Calculate how much it would cost to get all the needed components for each supplier
+              // Keep in mind we might have components available already
+            
+              // TODO: remove components already available from the total cost
+              // AID, cost for all components for all computers
+              HashMap <AID, Double> supplierCosts = new HashMap<>();
+              for (AID supplier : priceLists.keySet()) { // for each supplier
+                double totCost = 0;
+                for(ComputerComponent comp : order.getComputer().getComponentList()) { // Loop for all the components needed
+                  if (comp != null) { // Some component, like the laptop screen, can be null
+                    totCost += priceLists.get(supplier).get(comp);
                   }
                 }
                 
-                System.out.println("Speed required in days is: " + daysDue);
-                System.out.println("The best supplier for this order is: " + bestSupplier);
-                // 
-//                profit = ;
-                step++;
-//              }
+                totCost *= order.getQuantity();
+                supplierCosts.put(supplier, totCost);
+              }
               
               
+              // Pick the supplier that sells the components at the cheapest price, with the constraint that it needs
+              // to still deliver within the due days. ADVANCED: we can still accept order where the profit is still
+              // positive even though we will be fined for late delivery
+              int daysDue = order.getDueInDays();
+              
+              // TODO: recheck this. Look at the advanced note above
+              AID bestSupplier = null;
+              for (Entry<AID, Double> suppAndCost : supplierCosts.entrySet()) {
+                if (bestSupplier == null 
+                    && suppDeliveryDays.get(suppAndCost.getKey()) <= daysDue) {
+                    // If there is no best supplier, get the first that can deliver within the time limit
+                  bestSupplier = suppAndCost.getKey();
+                } else if (suppDeliveryDays.get(suppAndCost.getKey()) <= daysDue
+                    && suppAndCost.getValue() < supplierCosts.get(bestSupplier)) {
+                  // If can deliver within time constraint and cost is lower
+                  bestSupplier = suppAndCost.getKey();
+                }
+              }
+              
+              System.out.println("Speed required in days is: " + daysDue);
+              System.out.println("The best supplier for this order is: " + bestSupplier);
+              // 
+              profit = order.getPrice() - supplierCosts.get(bestSupplier);
+              System.out.println("Profit for this order is: " + profit);
+              dailyProfit += profit;
+              
+              // TODO: the PenaltyForLateOrders can be calculated at this stage as this
+              // wont change. Maybe not actually as we will be getting new components from
+              // the cheapest supplier on a daily basis
+              
+              step++;              
             } else {
                 System.out.println("Unknown predicate " + ce.getClass().getName());
             }
@@ -508,7 +508,7 @@ public class ManufactAgent extends Agent {
         
         // Send response
           ACLMessage reply = msg.createReply();
-          if(true) { // if profit is positive
+          if(profit > 0) { // if profit is positive
             
             
             // Add to list of orders that we said yes to, but not yet confirmed
@@ -529,8 +529,8 @@ public class ManufactAgent extends Agent {
           }
           myAgent.send(reply);
           repliesSent++;
+          step = 0; // This order was processed, reset cycle
           break;
-          
         }
     }
 
@@ -539,6 +539,8 @@ public class ManufactAgent extends Agent {
       // TODO: dev only
       if (repliesSent == customers.size()) {
         System.out.println("OrderReplyBehaviour is done. done is true");  
+      } else {
+//        step = 0;
       }
       
       return repliesSent == customers.size();
@@ -600,6 +602,7 @@ public class ManufactAgent extends Agent {
                   orderListConf.add(orderToMove);
                   ordersConfirmed.put(makeOrder.getBuyer(), orderListConf);
                 }
+                
                 ordersReceived++;
                 System.out.println("\nAdded to confirmed orders. List of confirmed orders at the end of CollectOrderRequests is: " + ordersConfirmed);
                 
@@ -625,11 +628,11 @@ public class ManufactAgent extends Agent {
     @Override
     public boolean done() {
       // TODO: dev only
-      if (ordersReceived == customers.size()) {
+      if (ordersReceived == ordersApproved.size()) {
         System.out.println("CollectOrderRequests is done. done is true");  
       }
       
-      return ordersReceived == customers.size();
+      return ordersReceived == ordersApproved.size();
     }
   }
   
@@ -661,6 +664,11 @@ public class ManufactAgent extends Agent {
       msg.addReceiver(suppliers.get(0));
       msg.setConversationId("component-selling");
       
+      // TODO: This can be done if I associate the best supplier that I found earlier
+      // with the corresponding order
+      // Best thing to do could be to create a list of order objects that only the manufacturer can
+      // see. A class that contains all the info that I am now storing in all this different
+      // arrays, eg. the best supplier for an order, if it was approved, confirmed etc.
       OwnsComponent ownsComp = new OwnsComponent();
       ownsComp.setOwner(suppliers.get(0));
       if (ordersConfirmed.isEmpty()) {
@@ -919,6 +927,14 @@ public class ManufactAgent extends Agent {
 
     @Override
     public void action() {
+      // TODO: Calculate loss on profit (for each of the components in the warehouse)
+      // total profit - components
+      
+      System.out.println("Today's profit was: " + dailyProfit);
+      
+      // Add to the total profit
+      totalProfit += dailyProfit;
+      
       // Inform the ticker agent and the manufacturer that we are done 
       ACLMessage doneMsg = new ACLMessage(ACLMessage.INFORM);
       doneMsg.setContent("done");
