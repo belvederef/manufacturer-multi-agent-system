@@ -2,6 +2,7 @@ package napier.ac.uk;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Map.Entry;
 
 import jade.content.Concept;
 import jade.content.ContentElement;
@@ -145,8 +146,9 @@ public class ManufactAgent extends Agent {
           SequentialBehaviour dailyActivity = new SequentialBehaviour();
           
           // Sub-behaviours will execute in the order they are added
-          dailyActivity.addSubBehaviour(new FindSuppliers(myAgent));
           dailyActivity.addSubBehaviour(new FindCustomers(myAgent));
+          dailyActivity.addSubBehaviour(new FindSuppliers(myAgent));
+          dailyActivity.addSubBehaviour(new GetInfoFromSuppliers(myAgent));
           dailyActivity.addSubBehaviour(new OrderReplyBehaviour(myAgent));
           dailyActivity.addSubBehaviour(new CollectOrderRequests(myAgent));
           dailyActivity.addSubBehaviour(new AskIfCanBuy(myAgent));
@@ -165,33 +167,6 @@ public class ManufactAgent extends Agent {
       }
     }
 
-  }
-
-  public class FindSuppliers extends OneShotBehaviour {
-    private static final long serialVersionUID = 1L;
-
-    public FindSuppliers(Agent a) {
-      super(a);
-    }
-
-    @Override
-    public void action() {
-      DFAgentDescription supplierTemplate = new DFAgentDescription();
-      ServiceDescription sd = new ServiceDescription();
-      sd.setType("supplier");
-      supplierTemplate.addServices(sd);
-      try{
-        suppliers.clear();
-        DFAgentDescription[] agentsType = DFService.search(myAgent,supplierTemplate); 
-        for(int i=0; i<agentsType.length; i++){
-          suppliers.add(agentsType[i].getName()); // this is the AID
-//          System.out.println("found supplier " + agentsType[i].getName());
-        }
-      }
-      catch(FIPAException e) {
-        e.printStackTrace();
-      }
-    }
   }
   
   public class FindCustomers extends OneShotBehaviour {
@@ -223,6 +198,147 @@ public class ManufactAgent extends Agent {
   }
   
   
+  public class FindSuppliers extends OneShotBehaviour {
+    private static final long serialVersionUID = 1L;
+
+    public FindSuppliers(Agent a) {
+      super(a);
+    }
+
+    @Override
+    public void action() {
+      DFAgentDescription supplierTemplate = new DFAgentDescription();
+      ServiceDescription sd = new ServiceDescription();
+      sd.setType("supplier");
+      supplierTemplate.addServices(sd);
+      try{
+        suppliers.clear();
+        DFAgentDescription[] agentsType = DFService.search(myAgent,supplierTemplate); 
+        for(int i=0; i<agentsType.length; i++){
+          suppliers.add(agentsType[i].getName()); // this is the AID
+//          System.out.println("found supplier " + agentsType[i].getName());
+        }
+      }
+      catch(FIPAException e) {
+        e.printStackTrace();
+      }
+    }
+  }
+  
+  
+  // Get price lists from all suppliers
+  public class GetInfoFromSuppliers extends Behaviour {
+    private static final long serialVersionUID = 1L;
+    
+    MessageTemplate mt;
+    private ACLMessage msg; // TODO: might remove message from here and use one for each step
+    private int step = 0;
+    private int supplierListReceived = 0;
+
+    public GetInfoFromSuppliers(Agent a) {
+      super(a);
+    }
+
+    @Override
+    public void action() {
+      switch (step) {  
+      case 0:        
+        // Prepare the action request message
+        ACLMessage enquiryMsg = new ACLMessage(ACLMessage.REQUEST);
+        enquiryMsg.setLanguage(codec.getName());
+        enquiryMsg.setOntology(ontology.getName()); 
+        enquiryMsg.setConversationId("supplier-info");
+        
+        AskSuppInfo askSuppInfo = new AskSuppInfo();
+        askSuppInfo.setBuyer(myAgent.getAID());
+        
+        Action request = new Action();
+        request.setAction(askSuppInfo);
+        
+        try {
+          for (AID supplier : suppliers) {
+            enquiryMsg.addReceiver(supplier);
+            request.setActor(supplier);
+            getContentManager().fillContent(enquiryMsg, request);
+            send(enquiryMsg);
+            
+            enquiryMsg.removeReceiver(supplier); // Remove to not send to same supp multiple times
+          }
+          step++;
+         }
+         catch (CodecException ce) {
+          ce.printStackTrace();
+         }
+         catch (OntologyException oe) {
+          oe.printStackTrace();
+         } 
+        break;
+
+      case 1:
+        // Receive the price list from all suppliers      
+        mt = MessageTemplate.and(
+            MessageTemplate.MatchPerformative(ACLMessage.INFORM),
+            MessageTemplate.MatchConversationId("supplier-info"));
+        msg = receive(mt);
+        
+        if(msg != null){
+          try {
+            ContentElement ce = null;
+            
+            // Print out the message content in SL
+            System.out.println("\nMessage received by manufacturer from supplier: " + msg.getContent()); 
+
+            ce = getContentManager().extractContent(msg);
+            if (ce instanceof SendSuppInfo) {
+              SendSuppInfo sendSuppInfo = (SendSuppInfo) ce;
+              
+              // Could not be able to send HashMaps by message. I am transforming the hashmap
+              // and two lists, keys and values. The end result is the same. Reassemble at this end
+              ArrayList<ComputerComponent> compsKeys = sendSuppInfo.getComponentsForSaleKeys();
+              ArrayList<Long> compsValues = sendSuppInfo.getComponentsForSaleVal();
+
+              // Info retrieved from message
+              AID supplier = sendSuppInfo.getSupplier();
+              int speed = sendSuppInfo.getSpeed();
+              HashMap<ComputerComponent, Integer> priceList = new HashMap<>();
+              for(int i=0; i<compsKeys.size(); i++) {
+                int price = compsValues.get(i).intValue();
+                priceList.put(compsKeys.get(i), price);
+              }
+              
+              
+              priceLists.put(supplier, priceList); // Add to the known priceLists
+              suppDeliveryDays.put(supplier, speed); // Add supplier speed for later reference
+              
+              System.out.println("Received price list is: " + priceList);
+              supplierListReceived++;
+            } else {
+              System.out.println("Unknown predicate " + ce.getClass().getName());
+            }
+          } catch (CodecException ce) {
+            ce.printStackTrace();
+          } catch (OntologyException oe) {
+            oe.printStackTrace();
+          }
+        } else {
+          block();
+        }
+        break;
+      }
+    }
+
+    @Override
+    public boolean done() {
+      return supplierListReceived == suppliers.size();
+    }
+  }
+  
+  
+  // Thought process:
+  // 1 - Get price lists from all suppliers - DINE in previous function
+  // 2 - Listen for query-ifs from customers. Decide if accepting or not
+  // 3 - Send reply back to customer
+  // 4 - If the customer order is accepted, order the needed components from supplier 
   private class OrderReplyBehaviour extends Behaviour{
     private static final long serialVersionUID = 1L;
     
@@ -231,7 +347,6 @@ public class ManufactAgent extends Agent {
     private ACLMessage msg; // TODO: might remove message from here and use one for each step
     private int step = 0;
     private int repliesSent = 0;
-    private int supplierListReceived = 0;
     private double profit;
     
     // This behaviour accepts or decline an order offer
@@ -242,7 +357,7 @@ public class ManufactAgent extends Agent {
     
     @Override
     public void action() {
-      switch (step) {
+      switch (step) {  
       case 0:
         // Receive order and calculate profit
         // This behaviour should only respond to QUERY_IF messages
@@ -285,10 +400,11 @@ public class ManufactAgent extends Agent {
                 }
               }
               
-              if(!allCompsAvailable) {
+              // Calculate profit
+//              if(!allCompsAvailable) {
                 // Query the supplier for the needed components and then calcute profit
-                step = 1;
-              } else {
+//                step = 1;
+//              } else {
              // If all components are available, calculate profit. If positive, accept
                 // If I already have components available it is because I bought them from the
                 // cheap supplier, knowing that I would have needed them soon
@@ -301,14 +417,57 @@ public class ManufactAgent extends Agent {
                 // minus what paid for comps can happen at the end of the day, so dont mind that for this 
                 // simple model. Can point that out in the report. 
                 
+//                TotalValueOfOrdersShipped(d)  – PenaltyForLateOrders(d) –
+//                WarehouseStorage(d) – SuppliesPurchased(d),
+                
 //                double profitPerComputer = order.getPrice() / order.getQuantity();
-                profit = order.getPrice();
-                step = 2;
-              }
+                
+                
               
-
+                // Calculate how much it would cost to get all the needed components for each supplier
+                // Keep in mind we might have components available already
               
-
+                // TODO: remove components already available from the total cost
+                // AID, cost for all components for all computers
+                HashMap <AID, Double> supplierCosts = new HashMap<>();
+                for (AID supplier : priceLists.keySet()) { // for each supplier
+                  double totCost = 0;
+                  for(ComputerComponent comp : order.getComputer().getComponentList()) { // Loop for all the components needed
+                    if (comp != null) { // Some component, like the laptop screen, can be null
+                      totCost += priceLists.get(supplier).get(comp);
+                    }
+                  }
+                  
+                  totCost *= order.getQuantity();
+                  supplierCosts.put(supplier, totCost);
+                }
+                
+                
+                // Pick the supplier that sells the components at the cheapest price, with the constraint that it needs
+                // to still deliver within the due days. ADVANCED: we can still accept order where the profit is still
+                // positive even though we will be fined for late delivery
+                int daysDue = order.getDueInDays();
+                
+                // TODO: recheck this. Look at the advanced note above
+                AID bestSupplier = null;
+                for (Entry<AID, Double> suppAndCost : supplierCosts.entrySet()) {
+                  if (bestSupplier == null 
+                      && suppDeliveryDays.get(suppAndCost.getKey()) <= daysDue) {
+                      // If there is no best supplier, get the first that can deliver within the time limit
+                    bestSupplier = suppAndCost.getKey();
+                  } else if (suppDeliveryDays.get(suppAndCost.getKey()) <= daysDue
+                      && suppAndCost.getValue() < supplierCosts.get(bestSupplier)) {
+                    // If can deliver within time constraint and cost is lower
+                    bestSupplier = suppAndCost.getKey();
+                  }
+                }
+                
+                System.out.println("Speed required in days is: " + daysDue);
+                System.out.println("The best supplier for this order is: " + bestSupplier);
+                // 
+//                profit = ;
+                step++;
+//              }
               
               
             } else {
@@ -328,108 +487,6 @@ public class ManufactAgent extends Agent {
         
         
       case 1:
-        // Asks the supplier to send a list of prices. Ask about speed of delivery
-        // Asks for the components for sale pricing list
-        
-        // When querying the supplier about the cost, I can send a query specifying which components
-        // I need and the quantity I need. In that way I can get a quote on the total.
-        // Probably better to ask for the whole list of prices, easier for this model
-        // Prepare the Query-IF message. Asks the manufacturer to if they will accept the order
-               
-        // Prepare the action request message
-        ACLMessage enquiryMsg = new ACLMessage(ACLMessage.REQUEST);
-        enquiryMsg.setLanguage(codec.getName());
-        enquiryMsg.setOntology(ontology.getName()); 
-        enquiryMsg.setConversationId("supplier-info");
-        for (AID supplier : suppliers) {
-          enquiryMsg.addReceiver(supplier);
-        }
-        
-        AskSuppInfo askSuppInfo = new AskSuppInfo();
-        askSuppInfo.setBuyer(myAgent.getAID());
-        
-        Action request = new Action();
-        request.setAction(askSuppInfo);
-        
-        try {
-          for (AID supplier : suppliers) {
-            request.setActor(supplier);
-            getContentManager().fillContent(enquiryMsg, request);
-            send(enquiryMsg);
-          }
-          step++;
-         }
-         catch (CodecException ce) {
-          ce.printStackTrace();
-         }
-         catch (OntologyException oe) {
-          oe.printStackTrace();
-         } 
-        break;
-        
-        
-
-      case 2:
-        // Receive the price list from all suppliers      
-        mt = MessageTemplate.and(
-            MessageTemplate.MatchPerformative(ACLMessage.INFORM),
-            MessageTemplate.MatchConversationId("supplier-info"));
-        msg = receive(mt);
-        
-        if(msg != null){
-          try {
-            ContentElement ce = null;
-            
-            // Print out the message content in SL
-            System.out.println("\nMessage received by manufacturer from supplier: " + msg.getContent()); 
-
-            ce = getContentManager().extractContent(msg);
-            if (ce instanceof SendSuppInfo) {
-              SendSuppInfo sendSuppInfo = (SendSuppInfo) ce;
-              
-              // Could not be able to send HashMaps by message. I am transforming the hashmap
-              // and two lists, keys and values. The end result is the same. Reassemble at this end
-              ArrayList<ComputerComponent> compsKeys = sendSuppInfo.getComponentsForSaleKeys();
-              ArrayList<Long> compsValues = sendSuppInfo.getComponentsForSaleVal();
-
-              // Info retrieved from message
-              AID supplier = sendSuppInfo.getSupplier();
-              int speed = sendSuppInfo.getSpeed();
-              HashMap<ComputerComponent, Integer> priceList = new HashMap<>();
-              for(int i=0; i<compsKeys.size(); i++) {
-                int price = compsValues.get(i).intValue();
-                priceList.put(compsKeys.get(i), price);
-              }
-              
-              
-              priceLists.put(supplier, priceList); // Add to the known priceLists
-              suppDeliveryDays.put(supplier, speed); // Add supplier speed for later reference
-              
-              System.out.println("Received price list is " + priceList);
-              supplierListReceived++;
-              
-              // If received list from all suppliers, go to next step
-              if(supplierListReceived == suppliers.size()) {
-                step = 3;
-              }
-
-            } else {
-                System.out.println("Unknown predicate " + ce.getClass().getName());
-            }
-          }
-          catch (CodecException ce) {
-            ce.printStackTrace();
-          }
-          catch (OntologyException oe) {
-            oe.printStackTrace();
-          }
-        } else {
-          block();
-        }
-        break;
-        
-        
-      case 3:
         // Profit on a single day 
 //        TotalValueOfOrdersShipped(d)  – PenaltyForLateOrders(d) –
 //        WarehouseStorage(d) – SuppliesPurchased(d),

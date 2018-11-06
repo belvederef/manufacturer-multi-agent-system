@@ -184,6 +184,10 @@ public abstract class SupplierAgent extends Agent {
               ArrayList<ComputerComponent> compsKeys = new ArrayList<>();
               ArrayList<Long> compsVals = new ArrayList<>();
               
+              
+              // TODO: I could send a list of components that I need in the request message 
+              // so that this seller agent only returns the prices for the components that I requested
+              // run a if statement here. Probably I dont need to care about this for this sample program
               for (Map.Entry<ComputerComponent, Integer> entry : componentsForSale.entrySet()) {
                 ComputerComponent key = entry.getKey();
                 long value = entry.getValue().longValue();
