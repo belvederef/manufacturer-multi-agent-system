@@ -125,7 +125,8 @@ public class ManufactAgent extends Agent {
           tickerAgent = msg.getSender();
         }
         if(msg.getContent().equals("new day")) {
-          // TODO:
+          // TODO: ASK SIMON. HOW TO USE ABSTRACT CLASS FOR COMPUTER
+          // ASK ABOUT INHERITANCE AND OVERRIDING OF ATTRIBUTES LIKE LAPTOP SCREEN
           
           // I can use a for loop in a one shot behav to a request for all the components I need 
           // Assume the agents will never fail, so always get a response
@@ -396,7 +397,6 @@ public class ManufactAgent extends Agent {
               Boolean allCompsAvailable = true;
               for (ComputerComponent comp : order.getComputer().getComponentList()) {
                 // If there are not enough components in the warehouse, flag as false
-                if (comp == null) continue;
                 if(!componentsAvailable.containsKey(comp) || 
                     (componentsAvailable.containsKey(comp) && 
                      componentsAvailable.get(comp) < order.getQuantity())) {
@@ -491,6 +491,7 @@ public class ManufactAgent extends Agent {
         } else {
           block();
         }
+      break;
         
         
       case 1:
@@ -540,6 +541,7 @@ public class ManufactAgent extends Agent {
           myAgent.send(reply);
           repliesSent++;
           step = 0; // This order was processed, reset cycle
+          break;
         }
     }
 
@@ -694,15 +696,15 @@ public class ManufactAgent extends Agent {
         
         AID supplier = order.getSupplierAssigned();  
         
-        OwnsComponents ownsComps = new OwnsComponents();
-        ownsComps.setOwner(supplier);
-        ownsComps.setQuantity(order.getQuantity());
-
         ACLMessage msg = new ACLMessage(ACLMessage.QUERY_IF);
         msg.setLanguage(codec.getName());
         msg.setOntology(ontology.getName()); 
         msg.addReceiver(supplier);
         msg.setConversationId("component-selling");
+        
+        OwnsComponents ownsComps = new OwnsComponents();
+        ownsComps.setOwner(supplier);
+        ownsComps.setQuantity(order.getQuantity());
         
         try {
           // Note: something that could be done in a real system is, if supllier doesnt have 

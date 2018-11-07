@@ -1,5 +1,7 @@
 package napier.ac.uk_ontology.concepts;
 
+import java.util.ArrayList;
+
 import jade.content.onto.annotations.Slot;
 import napier.ac.uk_ontology.computerComponents.CpuLaptop;
 import napier.ac.uk_ontology.computerComponents.MotherboardLaptop;
@@ -11,6 +13,7 @@ public class Laptop extends Computer {
   private CpuLaptop cpu;
   private MotherboardLaptop motherboard;
   private Screen screen;
+  private ArrayList<ComputerComponent> componentList;
   
   public Laptop() {
 	this.cpu = new CpuLaptop();
@@ -38,6 +41,13 @@ public class Laptop extends Computer {
   }
   public void setScreen(Screen lapScreen) {
     this.screen = lapScreen;
+  }
+  
+  @Slot (mandatory = false)
+  public ArrayList<ComputerComponent> getComponentList() {
+    componentList = super.getComponentList();
+    componentList.add(screen);
+    return componentList;
   }
   
   @Override

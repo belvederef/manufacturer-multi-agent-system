@@ -19,7 +19,7 @@ import napier.ac.uk_ontology.computerComponents.Screen;
 //(Book :title �The Lord of the rings� :author (Person :name �J.R.R. Tolkjien�)) 
 
 //TODO: make the computer only have enums for ram, hardDrive and OS
-public class Computer implements Concept {
+public abstract class Computer implements Concept {
   private static final long serialVersionUID = 1L;
   
   private Ram ram;
@@ -81,7 +81,6 @@ public class Computer implements Concept {
     componentList.add(os);
     componentList.add(cpu);
     componentList.add(motherboard);
-    componentList.add(screen);
     return componentList;
   }
   
