@@ -1,15 +1,17 @@
 package napier.ac.uk_ontology.predicates;
 
+import java.util.ArrayList;
+
 import jade.content.Predicate;
 import jade.content.onto.annotations.Slot;
 import jade.core.AID;
 import napier.ac.uk_ontology.concepts.ComputerComponent;
 
-public class ShipComponent implements Predicate {
+public class ShipComponents implements Predicate {
   private static final long serialVersionUID = 1L;
   
   private AID buyer;
-  private ComputerComponent component;
+  private ArrayList<ComputerComponent> components;
   
   @Slot(mandatory = true)
   public AID getBuyer() {
@@ -19,10 +21,10 @@ public class ShipComponent implements Predicate {
     this.buyer = buyer;
   }
   @Slot(mandatory = true)
-  public ComputerComponent getComponent() {
-    return component;
+  public ArrayList<ComputerComponent> getComponents() {
+    return components;
   }
-  public void setComponent(ComputerComponent component) {
-    this.component = component;
+  public void setComponents(ArrayList<ComputerComponent> components) {
+    this.components = components;
   }
 }

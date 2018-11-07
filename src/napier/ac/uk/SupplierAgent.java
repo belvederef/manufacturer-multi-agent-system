@@ -27,11 +27,11 @@ import jade.lang.acl.ACLMessage;
 import jade.lang.acl.MessageTemplate;
 import napier.ac.uk_ontology.ShopOntology;
 import napier.ac.uk_ontology.actions.AskSuppInfo;
-import napier.ac.uk_ontology.actions.BuyComponent;
+import napier.ac.uk_ontology.actions.BuyComponents;
 import napier.ac.uk_ontology.concepts.ComputerComponent;
 import napier.ac.uk_ontology.predicates.SendSuppInfo;
-import napier.ac.uk_ontology.predicates.OwnsComponent;
-import napier.ac.uk_ontology.predicates.ShipComponent;
+import napier.ac.uk_ontology.predicates.OwnsComponents;
+import napier.ac.uk_ontology.predicates.ShipComponents;
 import napier.ac.uk_ontology.predicates.ShipOrder;
 
 public abstract class SupplierAgent extends Agent {
@@ -250,14 +250,17 @@ public abstract class SupplierAgent extends Agent {
           // Let JADE convert from String to Java objects
           // Output will be a ContentElement
           ce = getContentManager().extractContent(msg);
-          if (ce instanceof OwnsComponent) {
-            OwnsComponent ownsComponent = (OwnsComponent) ce;
-            ComputerComponent component = (ComputerComponent) ownsComponent.getComponent();
+          if (ce instanceof OwnsComponents) {
+            OwnsComponents ownsComponents = (OwnsComponents) ce;
+            int quantity = (int) ownsComponents.getQuantity();
+            ArrayList<ComputerComponent> components = 
+                (ArrayList<ComputerComponent>) ownsComponents.getComponents();
 
             // Extract the component print it
-            System.out.println("The component asked to supplier is " + component.toString());
+            System.out.println("The component asked to supplier is " + components.toString());
 
-            // Accept all questions, we have unlimited stock
+            // Skip logic, we would need to check the stock but we have 
+            // unlimited stock in this example project accept all questions, 
             ACLMessage reply = msg.createReply();
             reply.setPerformative(ACLMessage.CONFIRM);
             reply.setConversationId("component-selling");
@@ -301,19 +304,18 @@ public abstract class SupplierAgent extends Agent {
           ce = getContentManager().extractContent(msg);
           if (ce instanceof Action) {
             Concept action = ((Action) ce).getAction();
-            if (action instanceof BuyComponent) {
-              BuyComponent orderedComponent = (BuyComponent) action;
-              ComputerComponent component = orderedComponent.getComponent();
+            if (action instanceof BuyComponents) {
+              BuyComponents orderedComponents = (BuyComponents) action;
+              int quantity = (int) orderedComponents.getQuantity();
+              ArrayList<ComputerComponent> components = 
+                  (ArrayList<ComputerComponent>) orderedComponents.getComponents();
 
-              // We have unlimited components, no need to check the stock or remove from list
-              // TODO: check that componentsForSale is different for every supplier
-              System.out.println("componentsForSale: " + componentsForSale);
-              if (componentsForSale.containsKey(component)) {
-                if (sendComponent(component, orderedComponent.getBuyer())) {
-                  System.out.println("\nSent component " + component + " to " + orderedComponent.getBuyer());
-                } else {
-                  System.out.println("\nCould not send component " + component + " to " + orderedComponent.getBuyer());
-                }
+              // Note: No need to remove from stock. Example project with unlimited stock
+
+              if (sendComponents(components, orderedComponents.getBuyer())) {
+                System.out.println("\nSent components " + components + " to " + orderedComponents.getBuyer());
+              } else {
+                System.out.println("\nCould not send component " + components + " to " + orderedComponents.getBuyer());
               }
             }
           }
@@ -331,7 +333,7 @@ public abstract class SupplierAgent extends Agent {
     }
     
     
-    private Boolean sendComponent(ComputerComponent component, AID buyer) {
+    private Boolean sendComponents(ArrayList<ComputerComponent> components, AID buyer) {
       // Prepare the INFORM message.
       ACLMessage msg = new ACLMessage(ACLMessage.INFORM);
       msg.setLanguage(codec.getName());
@@ -339,13 +341,13 @@ public abstract class SupplierAgent extends Agent {
       msg.setConversationId("component-selling");
       msg.addReceiver(buyer);
       
-      ShipComponent shipComponent = new ShipComponent();
-      shipComponent.setBuyer(buyer);
-      shipComponent.setComponent(component);
+      ShipComponents shipComponents = new ShipComponents();
+      shipComponents.setBuyer(buyer);
+      shipComponents.setComponents(components);
       
       try {
         // Fill content
-        getContentManager().fillContent(msg, shipComponent);
+        getContentManager().fillContent(msg, shipComponents);
         send(msg);
         return true;
        }

@@ -1,15 +1,17 @@
 package napier.ac.uk_ontology.actions;
 
+import java.util.ArrayList;
+
 import jade.content.AgentAction;
 import jade.content.onto.annotations.Slot;
 import jade.core.AID;
 import napier.ac.uk_ontology.concepts.ComputerComponent;
 
-public class BuyComponent implements AgentAction {
+public class BuyComponents implements AgentAction {
   private static final long serialVersionUID = 1L;
   
   private AID buyer;
-  private ComputerComponent component;
+  private ArrayList<ComputerComponent> components;
   private int quantity;
   
   @Slot(mandatory = true)
@@ -20,11 +22,11 @@ public class BuyComponent implements AgentAction {
     this.buyer = buyer;
   }
   @Slot(mandatory = true)
-  public ComputerComponent getComponent() {
-    return component;
+  public ArrayList<ComputerComponent> getComponents() {
+    return components;
   }
-  public void setComponent(ComputerComponent component) {
-    this.component = component;
+  public void setComponents(ArrayList<ComputerComponent> components) {
+    this.components = components;
   }
   @Slot(mandatory = true)
   public int getQuantity() {
