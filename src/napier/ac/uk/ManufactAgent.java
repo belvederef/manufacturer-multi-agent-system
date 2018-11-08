@@ -512,8 +512,6 @@ public class ManufactAgent extends Agent {
 //        (p=50), and the cost  of  warehouse storage per-day per-component is  £5  
 //        (w=5).
         
-        
-        
         // Send response
           ACLMessage reply = msg.createReply();
           if(profit > 0) { // if profit is positive
@@ -560,6 +558,7 @@ public class ManufactAgent extends Agent {
   private class CollectOrderRequests extends Behaviour{
     private static final long serialVersionUID = 1L;
     
+    private OrderManuf order;
     private int ordersReceived = 0;
     
     // This behaviour accepts the requests for the order it has accepted in the previous query_if
@@ -591,7 +590,8 @@ public class ManufactAgent extends Agent {
               // if the order was approved, change its state from approved to confirmed              
               int idxOrder = orders.indexOf(makeOrder.getOrder());
               if (idxOrder != -1) {
-                orders.get(idxOrder).setOrderState(OrderManuf.State.CONFIRMED);
+                order = orders.get(idxOrder);
+                order.setOrderState(OrderManuf.State.CONFIRMED);
                 ordersReceived++;
                 System.out.println("\nAdded to confirmed orders. List of orders at "
                     + "the end of CollectOrderRequests is: " + orders);
@@ -690,6 +690,9 @@ public class ManufactAgent extends Agent {
 //        for (Order order : ordersConfirmed.get(cust)) { // for each cust order
       
 
+      I NEED TO KEEP A REFERENCE TO ORDER, CAUSE IN THE LATER STEP WHEN THE SUPPLIER
+      REPLIES TO MY QUERY IF I NEED TO ""REQUEST"" THE SAME ORDER
+      
       for (OrderManuf order : orders) {
         // Send requests only for confirmed orders
         if (order.getOrderState() != OrderManuf.State.CONFIRMED) continue;
