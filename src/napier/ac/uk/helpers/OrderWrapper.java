@@ -4,22 +4,24 @@ import jade.core.AID;
 import napier.ac.uk_ontology.concepts.Order;
 
 // This class is used by the manufacturer to keep track of all the things it 
-// needs to know about an order. It extends the normal order class
-public class OrderManuf extends Order {
-  private static final long serialVersionUID = 1L;
+// needs to know about an order. It includes an order object
+public class OrderWrapper {
   
+  private Order order;
   private AID supplierAssigned; // best supplier
   private AID customer;
   private State orderState;
     
-  public OrderManuf(Order order) {
-    super();
-    this.setComputer(order.getComputer());
-    this.setPrice(order.getPrice());
-    this.setQuantity(order.getQuantity());
-    this.setDueInDays(order.getDueInDays());
+  public OrderWrapper(Order order) {
+    this.setOrder(order);
   }
 
+  public Order getOrder() {
+    return order;
+  }
+  public void setOrder(Order order) {
+    this.order = order;
+  };
   public AID getSupplierAssigned() {
     return supplierAssigned;
   }
@@ -42,5 +44,5 @@ public class OrderManuf extends Order {
   }
   public void setOrderState(State orderState) {
     this.orderState = orderState;
-  };
+  }
 }

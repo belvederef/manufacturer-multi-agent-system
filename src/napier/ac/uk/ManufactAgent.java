@@ -3,6 +3,7 @@ package napier.ac.uk;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map.Entry;
+import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 import jade.content.Concept;
@@ -27,7 +28,7 @@ import jade.domain.FIPAAgentManagement.DFAgentDescription;
 import jade.domain.FIPAAgentManagement.ServiceDescription;
 import jade.lang.acl.ACLMessage;
 import jade.lang.acl.MessageTemplate;
-import napier.ac.uk.helpers.OrderManuf;
+import napier.ac.uk.helpers.OrderWrapper;
 import napier.ac.uk_ontology.ShopOntology;
 import napier.ac.uk_ontology.actions.AskSuppInfo;
 import napier.ac.uk_ontology.actions.BuyComponents;
@@ -51,7 +52,7 @@ public class ManufactAgent extends Agent {
   private ArrayList<AID> suppliers = new ArrayList<>();
   private ArrayList<AID> customers = new ArrayList<>();
   
-  private ArrayList<OrderManuf> orders = new ArrayList<>();
+  private ArrayList<OrderWrapper> orders = new ArrayList<>();
 //  private HashMap<AID, ArrayList<Order>> ordersApproved = new HashMap<>(); // List of the orders we said yes to
   // Note: having an additional list prevents an agent to simply request us to complete an order. 
   // They can only ask, if we said yes then they could request us to complete the order.
@@ -347,7 +348,7 @@ public class ManufactAgent extends Agent {
   private class OrderReplyBehaviour extends Behaviour{
     private static final long serialVersionUID = 1L;
     
-    private OrderManuf order;
+    private OrderWrapper orderWpr;
     MessageTemplate mt;
     private ACLMessage msg; // TODO: might remove message from here and use one for each step
     private int step = 0;
@@ -384,10 +385,10 @@ public class ManufactAgent extends Agent {
             if (ce instanceof CanManufacture) {
               CanManufacture canManifacture = (CanManufacture) ce;
               Order tmpOrder = canManifacture.getOrder();
-              order = new OrderManuf(tmpOrder);
-              order.setCustomer(msg.getSender());
+              orderWpr = new OrderWrapper(tmpOrder);
+              orderWpr.setCustomer(msg.getSender());
               
-              Computer computer = (Computer) order.getComputer();
+              Computer computer = (Computer) orderWpr.getOrder().getComputer();
               
               // Extract the computer specs and print them
               System.out.println("The computer ordered is " + computer.toString());
@@ -395,11 +396,11 @@ public class ManufactAgent extends Agent {
 //              ArrayList<ComputerComponent> componentsNeeded = new ArrayList<>();
               
               Boolean allCompsAvailable = true;
-              for (ComputerComponent comp : order.getComputer().getComponentList()) {
+              for (ComputerComponent comp : orderWpr.getOrder().getComputer().getComponentList()) {
                 // If there are not enough components in the warehouse, flag as false
                 if(!componentsAvailable.containsKey(comp) || 
                     (componentsAvailable.containsKey(comp) && 
-                     componentsAvailable.get(comp) < order.getQuantity())) {
+                     componentsAvailable.get(comp) < orderWpr.getOrder().getQuantity())) {
                   allCompsAvailable = false;
                   break;
                 }
@@ -433,13 +434,13 @@ public class ManufactAgent extends Agent {
               HashMap <AID, Double> supplierCosts = new HashMap<>();
               for (AID supplier : suppliers) { // for each supplier
                 double totCost = 0;
-                for(ComputerComponent comp : order.getComputer().getComponentList()) { // Loop for all the components needed
+                for(ComputerComponent comp : orderWpr.getOrder().getComputer().getComponentList()) { // Loop for all the components needed
                   if (comp != null) { // Some component, like the laptop screen, can be null
                     totCost += priceLists.get(supplier).get(comp);
                   }
                 }
                 
-                totCost *= order.getQuantity();
+                totCost *= orderWpr.getOrder().getQuantity();
                 supplierCosts.put(supplier, totCost);
               }
               
@@ -448,7 +449,7 @@ public class ManufactAgent extends Agent {
               // to still deliver within the due days. ADVANCED: we can still accept order where the profit is still
               // positive even though we will be fined for late delivery
               // TODO: recheck this. Look at the advanced note above
-              int daysDue = order.getDueInDays();
+              int daysDue = orderWpr.getOrder().getDueInDays();
               AID bestSupplier = null;
               
               for (Entry<AID, Double> suppAndCost : supplierCosts.entrySet()) {
@@ -467,9 +468,9 @@ public class ManufactAgent extends Agent {
               
               System.out.println("Speed required in days is: " + daysDue);
               System.out.println("The best supplier for this order is: " + bestSupplier);
-              order.setSupplierAssigned(bestSupplier);
+              orderWpr.setSupplierAssigned(bestSupplier);
               
-              profit = order.getPrice() - supplierCosts.get(bestSupplier);
+              profit = orderWpr.getOrder().getPrice() - supplierCosts.get(bestSupplier);
               System.out.println("Profit for this order is: " + profit);
               dailyProfit += profit;
               
@@ -518,8 +519,8 @@ public class ManufactAgent extends Agent {
             
             
             // Add to list of orders that we said yes to, but not yet confirmed
-            order.setOrderState(OrderManuf.State.APPROVED);
-            orders.add(order);
+            orderWpr.setOrderState(OrderWrapper.State.APPROVED);
+            orders.add(orderWpr);
             
 //            if (ordersApproved.containsKey(msg.getSender())) {
 //              // If customer has already made an order, add to that list
@@ -558,8 +559,7 @@ public class ManufactAgent extends Agent {
   private class CollectOrderRequests extends Behaviour{
     private static final long serialVersionUID = 1L;
     
-    private OrderManuf order;
-    private int ordersReceived = 0;
+    private OrderWrapper orderWpr;
     
     // This behaviour accepts the requests for the order it has accepted in the previous query_if
     // This behaviour accepts the order requests we said yes to, if the customer still wants them
@@ -586,13 +586,15 @@ public class ManufactAgent extends Agent {
             Concept action = ((Action)ce).getAction();
             if (action instanceof MakeOrder) {
               MakeOrder makeOrder = (MakeOrder)action;
-              
-              // if the order was approved, change its state from approved to confirmed              
-              int idxOrder = orders.indexOf(makeOrder.getOrder());
+                           
+              int idxOrder = IntStream.range(0, orders.size())
+                  .filter(i -> makeOrder.getOrder().equals(orders.get(i).getOrder()))
+                  .findFirst()
+                  .orElse(-1);
+              // if the order was approved, change its state from approved to confirmed 
               if (idxOrder != -1) {
-                order = orders.get(idxOrder);
-                order.setOrderState(OrderManuf.State.CONFIRMED);
-                ordersReceived++;
+                orderWpr = orders.get(idxOrder);
+                orderWpr.setOrderState(OrderWrapper.State.CONFIRMED);
                 System.out.println("\nAdded to confirmed orders. List of orders at "
                     + "the end of CollectOrderRequests is: " + orders);
               } else {
@@ -647,13 +649,16 @@ public class ManufactAgent extends Agent {
     @Override
     public boolean done() {
       // TODO: dev only
-      if (ordersReceived == orders.stream()
-          .filter(o -> o.getOrderState() == OrderManuf.State.CONFIRMED).count()) {
+      Boolean bool = orders.stream()
+          .filter(o -> o.getOrderState() == OrderWrapper.State.APPROVED)
+          .count() == 0;
+      
+      if (bool) {
         System.out.println("CollectOrderRequests is done. done is true");  
       }
       
-      return ordersReceived == orders.stream()
-          .filter(o -> o.getOrderState() == OrderManuf.State.CONFIRMED).count();
+      // Loop until there are no orders that are yet to be confirmed
+      return bool;
     }
   }
   
@@ -690,14 +695,14 @@ public class ManufactAgent extends Agent {
 //        for (Order order : ordersConfirmed.get(cust)) { // for each cust order
       
 
-      I NEED TO KEEP A REFERENCE TO ORDER, CAUSE IN THE LATER STEP WHEN THE SUPPLIER
-      REPLIES TO MY QUERY IF I NEED TO ""REQUEST"" THE SAME ORDER
+//      I NEED TO KEEP A REFERENCE TO ORDER, CAUSE IN THE LATER STEP WHEN THE SUPPLIER
+//      REPLIES TO MY QUERY IF I NEED TO ""REQUEST"" THE SAME ORDER
       
-      for (OrderManuf order : orders) {
+      for (OrderWrapper orderWpr : orders) {
         // Send requests only for confirmed orders
-        if (order.getOrderState() != OrderManuf.State.CONFIRMED) continue;
+        if (orderWpr.getOrderState() != OrderWrapper.State.CONFIRMED) continue;
         
-        AID supplier = order.getSupplierAssigned();  
+        AID supplier = orderWpr.getSupplierAssigned();  
         
         ACLMessage msg = new ACLMessage(ACLMessage.QUERY_IF);
         msg.setLanguage(codec.getName());
@@ -707,13 +712,13 @@ public class ManufactAgent extends Agent {
         
         OwnsComponents ownsComps = new OwnsComponents();
         ownsComps.setOwner(supplier);
-        ownsComps.setQuantity(order.getQuantity());
+        ownsComps.setQuantity(orderWpr.getOrder().getQuantity());
         
         try {
           // Note: something that could be done in a real system is, if supllier doesnt have 
           // the components that we require, buy from the second best only the ones that 
           // the best cant give us 
-          ownsComps.setComponents(order.getComputer().getComponentList());                            
+          ownsComps.setComponents(orderWpr.getOrder().getComputer().getComponentList());                            
           getContentManager().fillContent(msg, ownsComps);
           send(msg);
 //          ordersAsked++;
