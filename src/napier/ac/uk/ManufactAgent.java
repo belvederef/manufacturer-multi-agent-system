@@ -134,6 +134,10 @@ public class ManufactAgent extends Agent {
           // have a look at the JADE response things that Simon said, so that ShipOrder or ShipComponent
             // are predicates that respond to the actions. I can use an INFORM message that contains 
             // those predicates
+          // TODO: for the report, specify that I started with a very simplistic approach and then
+          // I ran experiments to improve the model. eg. accept all orders at the beginning,
+          // then accept only the profitable ones, then try to reduce loss caused by the warehouse
+          // storage.
           
           // TODO: explain in the paper that we developed the app in a very simplistic way, not ideal
           // for real world usage. This is because customers could make orders at any time during a day,
@@ -559,8 +563,6 @@ public class ManufactAgent extends Agent {
   private class CollectOrderRequests extends Behaviour{
     private static final long serialVersionUID = 1L;
     
-    private OrderWrapper orderWpr;
-    
     // This behaviour accepts the requests for the order it has accepted in the previous query_if
     // This behaviour accepts the order requests we said yes to, if the customer still wants them
     public CollectOrderRequests(Agent a) {
@@ -592,9 +594,9 @@ public class ManufactAgent extends Agent {
                   .findFirst()
                   .orElse(-1);
               // if the order was approved, change its state from approved to confirmed 
-              if (idxOrder != -1) {
-                orderWpr = orders.get(idxOrder);
-                orderWpr.setOrderState(OrderWrapper.State.CONFIRMED);
+              if (idxOrder != -1 
+                  && orders.get(idxOrder).getOrderState() == OrderWrapper.State.APPROVED) {
+                orders.get(idxOrder).setOrderState(OrderWrapper.State.CONFIRMED);
                 System.out.println("\nAdded to confirmed orders. List of orders at "
                     + "the end of CollectOrderRequests is: " + orders);
               } else {
@@ -715,7 +717,7 @@ public class ManufactAgent extends Agent {
         ownsComps.setQuantity(orderWpr.getOrder().getQuantity());
         
         try {
-          // Note: something that could be done in a real system is, if supllier doesnt have 
+          // Note: something that could be done in a real system is, if supplier doesnt have 
           // the components that we require, buy from the second best only the ones that 
           // the best cant give us 
           ownsComps.setComponents(orderWpr.getOrder().getComputer().getComponentList());                            
@@ -759,7 +761,7 @@ public class ManufactAgent extends Agent {
     }
 
     @Override
-    public void action() {      
+    public void action() {
       MessageTemplate mt = MessageTemplate.and(
           MessageTemplate.MatchPerformative(ACLMessage.CONFIRM),
           MessageTemplate.MatchConversationId("component-selling"));
