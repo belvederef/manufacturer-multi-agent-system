@@ -35,7 +35,7 @@ public class SupplierSlowAgent extends SupplierAgent {
     super.componentsForSale.put(new OsWindows(), 75);
     super.componentsForSale.put(new OsLinux(), 0);
     
-    super.deliveryDays = 7;
+    super.suppDeliveryDays = 7;
     name = "slow"; // pass name/speed
     System.out.println("Created slow supplier");
     

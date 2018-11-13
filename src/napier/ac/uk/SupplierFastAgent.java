@@ -35,7 +35,7 @@ public class SupplierFastAgent extends SupplierAgent {
     super.componentsForSale.put(new OsWindows(), 75);
     super.componentsForSale.put(new OsLinux(), 0);
     
-    super.deliveryDays = 1;
+    super.suppDeliveryDays = 1;
 //    name = "slow"; // pass name/speed
     System.out.println("Created fast supplier");
     

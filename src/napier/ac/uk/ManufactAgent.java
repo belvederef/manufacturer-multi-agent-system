@@ -60,7 +60,7 @@ public class ManufactAgent extends Agent {
 //  private HashMap<Order, AID> ordersBestSupp = new HashMap<>(); // List of orders and their best suppliers to buy from
   
   private HashMap<ComputerComponent, Integer> componentsOrdered = new HashMap<>(); // The orders accepted by supplier so far, quantity
-  private HashMap<ComputerComponent, Integer> componentsAvailable = new HashMap<>(); // components available to build computers, quantity
+  private HashMap<ComputerComponent, Integer> warehouse = new HashMap<>(); // components available to build computers, quantity
   private HashMap<ComputerComponent, Integer> componentsReserved = new HashMap<>(); // components reserved for orders accepted, quantity
 
   private HashMap<AID, HashMap<ComputerComponent, Integer>> priceLists = new HashMap<>(); // suppliers pricelists
@@ -163,9 +163,9 @@ public class ManufactAgent extends Agent {
           dailyActivity.addSubBehaviour(new GetInfoFromSuppliers(myAgent));
           dailyActivity.addSubBehaviour(new OrderReplyBehaviour(myAgent));
           dailyActivity.addSubBehaviour(new CollectOrderRequests(myAgent));
-          dailyActivity.addSubBehaviour(new AskIfCanBuy(myAgent));
-          dailyActivity.addSubBehaviour(new BuyComponentAction(myAgent));
-          dailyActivity.addSubBehaviour(new ReceiveComponent(myAgent));
+//          dailyActivity.addSubBehaviour(new AskIfCanBuy(myAgent));
+//          dailyActivity.addSubBehaviour(new BuyComponentAction(myAgent));
+          dailyActivity.addSubBehaviour(new ReceiveComponents(myAgent));
           dailyActivity.addSubBehaviour(new ManufactureAndSend(myAgent));
           dailyActivity.addSubBehaviour(new EndDay(myAgent));
           
@@ -402,9 +402,9 @@ public class ManufactAgent extends Agent {
               Boolean allCompsAvailable = true;
               for (ComputerComponent comp : orderWpr.getOrder().getComputer().getComponentList()) {
                 // If there are not enough components in the warehouse, flag as false
-                if(!componentsAvailable.containsKey(comp) || 
-                    (componentsAvailable.containsKey(comp) && 
-                     componentsAvailable.get(comp) < orderWpr.getOrder().getQuantity())) {
+                if(!warehouse.containsKey(comp) || 
+                    (warehouse.containsKey(comp) && 
+                     warehouse.get(comp) < orderWpr.getOrder().getQuantity())) {
                   allCompsAvailable = false;
                   break;
                 }
@@ -563,6 +563,10 @@ public class ManufactAgent extends Agent {
   private class CollectOrderRequests extends Behaviour{
     private static final long serialVersionUID = 1L;
     
+    private OrderWrapper orderWpr;
+    private AID supplier;
+    private int step = 0;
+    
     // This behaviour accepts the requests for the order it has accepted in the previous query_if
     // This behaviour accepts the order requests we said yes to, if the customer still wants them
     public CollectOrderRequests(Agent a) {
@@ -571,81 +575,244 @@ public class ManufactAgent extends Agent {
     
     @Override
     public void action() {
-      // This behaviour should only respond to REQUEST messages
-      MessageTemplate mt = MessageTemplate.and(
-          MessageTemplate.MatchPerformative(ACLMessage.REQUEST),
-          MessageTemplate.MatchConversationId("customer-order"));
-      ACLMessage msg = receive(mt);
       
-      if(msg != null){
-        try {
-          ContentElement ce = null;
-          System.out.println("\nmessage received in CollectOrderRequests is: " + msg.getContent());
+      switch(step) {
+      case 0:
+        MessageTemplate mt = MessageTemplate.and(
+            MessageTemplate.MatchPerformative(ACLMessage.REQUEST),
+            MessageTemplate.MatchConversationId("customer-order"));
+        ACLMessage msg = receive(mt);
+        
+        if(msg != null){
+          try {
+            ContentElement ce = null;
+            System.out.println("\nmessage received in CollectOrderRequests is: " + msg.getContent());
 
-          // Let JADE convert from String to Java objects
-          ce = getContentManager().extractContent(msg);
-          if(ce instanceof Action) {
-            Concept action = ((Action)ce).getAction();
-            if (action instanceof MakeOrder) {
-              MakeOrder makeOrder = (MakeOrder)action;
-                           
-              int idxOrder = IntStream.range(0, orders.size())
-                  .filter(i -> makeOrder.getOrder().equals(orders.get(i).getOrder()))
-                  .findFirst()
-                  .orElse(-1);
-              // if the order was approved, change its state from approved to confirmed 
-              if (idxOrder != -1 
-                  && orders.get(idxOrder).getOrderState() == OrderWrapper.State.APPROVED) {
-                orders.get(idxOrder).setOrderState(OrderWrapper.State.CONFIRMED);
-                System.out.println("\nAdded to confirmed orders. List of orders at "
-                    + "the end of CollectOrderRequests is: " + orders);
-              } else {
-                // If the order was not approved in the previous step, don't accept order request
-                System.out.println("\nThis order was not approved! Cannot process order!");
+            // Let JADE convert from String to Java objects
+            ce = getContentManager().extractContent(msg);
+            if(ce instanceof Action) {
+              Concept action = ((Action)ce).getAction();
+              if (action instanceof MakeOrder) {
+                MakeOrder makeOrder = (MakeOrder)action;
+                             
+                int idxOrder = IntStream.range(0, orders.size())
+                    .filter(i -> makeOrder.getOrder().equals(orders.get(i).getOrder()))
+                    .findFirst()
+                    .orElse(-1);
+                // if the order was approved, change its state from approved to confirmed 
+                if (idxOrder != -1 
+                    && orders.get(idxOrder).getOrderState() == OrderWrapper.State.APPROVED) {
+                  orderWpr = orders.get(idxOrder);
+                  orderWpr.setOrderState(OrderWrapper.State.CONFIRMED);
+                  System.out.println("\nAdded to confirmed orders. List of orders at "
+                      + "the end of CollectOrderRequests is: " + orders);
+                  step++;
+                } else {
+                  // If the order was not approved in the previous step, don't accept order request
+                  System.out.println("\nThis order was not approved! Cannot process order!");
+                }
+              }
+            }
+          } catch (CodecException ce) {
+            ce.printStackTrace();
+          } catch (OntologyException oe) {
+            oe.printStackTrace();
+          } catch (Exception e) {
+            e.printStackTrace();
+          }
+        } else {
+          block();
+        }
+        break;
+       
+        
+      case 1:
+        // Ask the supplier if they have all the components that we need for this order
+        supplier = orderWpr.getSupplierAssigned();  
+        
+        ACLMessage queryMsg = new ACLMessage(ACLMessage.QUERY_IF);
+        queryMsg.setLanguage(codec.getName());
+        queryMsg.setOntology(ontology.getName()); 
+        queryMsg.addReceiver(supplier);
+        queryMsg.setConversationId("component-selling");
+        
+        OwnsComponents ownsComps = new OwnsComponents();
+        ownsComps.setOwner(supplier);
+        ownsComps.setQuantity(orderWpr.getOrder().getQuantity());
+        
+        try {
+          // Note: something that could be done in a real system is, if supplier doesnt have 
+          // the components that we require, buy from the second best only the ones that 
+          // the best cant give us 
+          ownsComps.setComponents(orderWpr.getOrder().getComputer().getComponentList());                            
+          getContentManager().fillContent(queryMsg, ownsComps);
+          send(queryMsg);
+          step++;
+         } catch (CodecException ce) {
+          ce.printStackTrace();
+         } catch (OntologyException oe) {
+          oe.printStackTrace();
+         } catch (Exception e) {
+           e.printStackTrace();
+         }
+         break;
+        
+        
+      case 2:
+        // Send order message to supplier if they have the components in stock
+        MessageTemplate cmt = MessageTemplate.and(
+            MessageTemplate.MatchPerformative(ACLMessage.CONFIRM),
+            MessageTemplate.MatchConversationId("component-selling"));
+        
+        ACLMessage confMsg = myAgent.receive(cmt);
+        System.out.println("\nmessage received in BuyComponentAction is: " + confMsg);
+        if(confMsg != null) {
+//          replyReceived = true;
+          if(confMsg.getPerformative() == ACLMessage.CONFIRM) {
+            // The supplier has the components in stock and confirmed
+            System.out.println("\nThe supplier has the components in stock and confirmed! YAY! Now making request...");
+            
+            // Prepare the action request message
+            ACLMessage orderMsg = new ACLMessage(ACLMessage.REQUEST);
+            orderMsg.setLanguage(codec.getName());
+            orderMsg.setOntology(ontology.getName()); 
+            orderMsg.setConversationId("component-selling");
+            orderMsg.addReceiver(supplier);
+            
+            try {            
+              
+              // Prepare the content. 
+              BuyComponents buyComponents = new BuyComponents();
+              buyComponents.setBuyer(myAgent.getAID());
+              buyComponents.setComponents(orderWpr.getOrder().getComputer().getComponentList());
+              buyComponents.setQuantity(orderWpr.getOrder().getQuantity());
+              
+              Action request = new Action();
+              request.setAction(buyComponents);
+              request.setActor(confMsg.getSender());
+    
+               getContentManager().fillContent(orderMsg, request); //send the wrapper object
+               send(orderMsg);
+               orderWpr.setOrderState(OrderWrapper.State.AWAITING_COMPS);
+               orderWpr.setExpectedCompShipDate(day + suppDeliveryDays.get(supplier));
+               TODO IMPORTANT: WE ARE NOW AWAITING THE COMPONENTS. THIS FUNCTION SHOULD
+               STOP HERE. RECEIVING THE COMPONENTS SHOULD HAPPENED IN THE ANOTHER ONESHOTBEHAV
+               LOOP THROUGH THE ORDERS THAT HAVE AN EXPECTED SHIP DATE EQUAL TO TODAY
+               step = 0;
+               System.out.println("Sending order request to supplier. msg is: " + orderMsg);
+            } catch (CodecException ce) {
+             ce.printStackTrace();
+            } catch (OntologyException oe) {
+             oe.printStackTrace();
+            } 
+          } else if(confMsg.getPerformative() == ACLMessage.REFUSE) {
+            System.out.println("\nThe supplier does not have the components in stock!");
+            orderWpr.setOrderState(OrderWrapper.State.DISMISSED);
+          }
+        } else {
+          block();
+        }
+        break;
+        
+      case 3:
+        // Receive components
+        MessageTemplate rcmt = MessageTemplate.and(
+            MessageTemplate.MatchPerformative(ACLMessage.INFORM),
+            MessageTemplate.MatchConversationId("component-selling"));
+        ACLMessage rcMsg = receive(rcmt);
+        
+        if(rcMsg != null){
+          try {
+            ContentElement ce = null;
+            
+            // Print out the message content in SL
+            System.out.println("\nMessage received by manufacturer from supplier " + rcMsg.getContent()); 
+
+            ce = getContentManager().extractContent(rcMsg);
+            if (ce instanceof ShipComponents) {
+              ShipComponents shipComponents = (ShipComponents) ce;
+              ArrayList<ComputerComponent> compList = shipComponents.getComponents();
+              int quantity = shipComponents.getQuantity();
+              
+              // The components received get assigned to the order they were for
+              for (ComputerComponent comp : compList) {
+                orderWpr.getCompsAssigned().put(comp, quantity);
               }
               
+              // Extract the received component and print it
+              System.out.println("Received " + quantity + " components: " + compList);
               
-//              int idxOrder = ordersApproved.get(makeOrder.getBuyer()).indexOf(makeOrder.getOrder());
-//              
-//              System.out.println("\nmakeOrder.getOrder(): " + makeOrder.getOrder());
-//              System.out.println("\nFirst order approved for that buyer: " + ordersApproved.get(makeOrder.getBuyer()).get(0));
-//              
-//              if (idxOrder != -1) {
-//                // Runs if order is in list of orders we approved
-//                Order orderToMove = ordersApproved.get(makeOrder.getBuyer()).get(idxOrder);
-//                
-//                // Removed from approved list
-//                ordersApproved.get(makeOrder.getBuyer()).remove(idxOrder);
-//                
-//                // Add to confirmed list
-//                if (ordersConfirmed.containsKey(makeOrder.getBuyer())) {
-//                  // If customer has already made an order, add to that list
-//                  ordersConfirmed.get(makeOrder.getBuyer()).add(orderToMove);
-//                } else {
-//                  ArrayList<Order> orderListConf = new ArrayList<>();
-//                  orderListConf.add(orderToMove);
-//                  ordersConfirmed.put(makeOrder.getBuyer(), orderListConf);
-//                }
-//                
-//                ordersReceived++;
-//                System.out.println("\nAdded to confirmed orders. List of confirmed orders at the end of CollectOrderRequests is: " + ordersConfirmed);
-//                
+              step = 0;
+            } else {
+                System.out.println("Unknown predicate " + ce.getClass().getName());
+            }
+          }
+          catch (CodecException ce) {
+            ce.printStackTrace();
+          }
+          catch (OntologyException oe) {
+            oe.printStackTrace();
+          }
+        } else{
+          block();
+        }
+        break;
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+      }
+//      MessageTemplate mt = MessageTemplate.and(
+//          MessageTemplate.MatchPerformative(ACLMessage.REQUEST),
+//          MessageTemplate.MatchConversationId("customer-order"));
+//      ACLMessage msg = receive(mt);
+//      
+//      if(msg != null){
+//        try {
+//          ContentElement ce = null;
+//          System.out.println("\nmessage received in CollectOrderRequests is: " + msg.getContent());
+//
+//          // Let JADE convert from String to Java objects
+//          ce = getContentManager().extractContent(msg);
+//          if(ce instanceof Action) {
+//            Concept action = ((Action)ce).getAction();
+//            if (action instanceof MakeOrder) {
+//              MakeOrder makeOrder = (MakeOrder)action;
+//                           
+//              int idxOrder = IntStream.range(0, orders.size())
+//                  .filter(i -> makeOrder.getOrder().equals(orders.get(i).getOrder()))
+//                  .findFirst()
+//                  .orElse(-1);
+//              // if the order was approved, change its state from approved to confirmed 
+//              if (idxOrder != -1 
+//                  && orders.get(idxOrder).getOrderState() == OrderWrapper.State.APPROVED) {
+//                orders.get(idxOrder).setOrderState(OrderWrapper.State.CONFIRMED);
+//                System.out.println("\nAdded to confirmed orders. List of orders at "
+//                    + "the end of CollectOrderRequests is: " + orders);
 //              } else {
 //                // If the order was not approved in the previous step, don't accept order request
 //                System.out.println("\nThis order was not approved! Cannot process order!");
 //              }
-            }
-          }
-        } catch (CodecException ce) {
-          ce.printStackTrace();
-        } catch (OntologyException oe) {
-          oe.printStackTrace();
-        } catch (Exception e) {
-          e.printStackTrace();
-        }
-      } else {
-        block();
-      }
+//              
+//            }
+//          }
+//        } catch (CodecException ce) {
+//          ce.printStackTrace();
+//        } catch (OntologyException oe) {
+//          oe.printStackTrace();
+//        } catch (Exception e) {
+//          e.printStackTrace();
+//        }
+//      } else {
+//        block();
+//      }
     }
 
     @Override
@@ -655,12 +822,12 @@ public class ManufactAgent extends Agent {
           .filter(o -> o.getOrderState() == OrderWrapper.State.APPROVED)
           .count() == 0;
       
-      if (bool) {
+      if (bool && step == 0) {
         System.out.println("CollectOrderRequests is done. done is true");  
       }
       
       // Loop until there are no orders that are yet to be confirmed
-      return bool;
+      return bool && step == 0;
     }
   }
   
@@ -831,12 +998,14 @@ public class ManufactAgent extends Agent {
 
   }
   
-  public class ReceiveComponent extends Behaviour {
+  // Receive the components asked to fill the warehouse, not yet assigned to orders
+  public class ReceiveComponents extends Behaviour {
+    // TODO: probably add here the logic that asks to get 
     private static final long serialVersionUID = 1L;
     
     private int componentsReceived = 0;
     
-    public ReceiveComponent(Agent a) {
+    public ReceiveComponents(Agent a) {
       super(a);
     }
     
@@ -858,13 +1027,17 @@ public class ManufactAgent extends Agent {
 
           ce = getContentManager().extractContent(msg);
           if (ce instanceof ShipComponents) {
-            ShipComponents shipComponent = (ShipComponents) ce;
-            ComputerComponent component = shipComponent.getComponent();
+            ShipComponents shipComponents = (ShipComponents) ce;
+            ArrayList<ComputerComponent> compList = shipComponents.getComponents();
+            int quantity = shipComponents.getQuantity();
+            
+            // The components received get added to the warehouse
+            for (ComputerComponent comp : compList) {
+              warehouse.put(comp, quantity);
+            }
             
             // Extract the received component and print it
-            System.out.println("Received component " + component.toString());
-            
-//            componentsAvailable.add(component);
+            System.out.println("Received " + quantity + " components: " + compList);
             componentsReceived++;
           } else {
               System.out.println("Unknown predicate " + ce.getClass().getName());
@@ -902,7 +1075,7 @@ public class ManufactAgent extends Agent {
     public void action() {
       // for each order
       // If have enough components, manufacture components into an order and send to customer
-      // TODO: remove components from componentsAvailable list when using them
+      // TODO: remove components from warehouse list when using them
       
       AID cust = customers.get(0);
       Order order = ordersConfirmed.get(cust).get(0);

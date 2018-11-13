@@ -1,6 +1,9 @@
 package napier.ac.uk.helpers;
 
+import java.util.HashMap;
+
 import jade.core.AID;
+import napier.ac.uk_ontology.concepts.ComputerComponent;
 import napier.ac.uk_ontology.concepts.Order;
 
 // This class is used by the manufacturer to keep track of all the things it 
@@ -11,9 +14,12 @@ public class OrderWrapper {
   private AID supplierAssigned; // best supplier
   private AID customer;
   private State orderState;
+  private HashMap <ComputerComponent, Integer> compsAssigned;
+  private int expectedCompShipDate;
     
   public OrderWrapper(Order order) {
     this.setOrder(order);
+    compsAssigned = new HashMap<>();
   }
 
   public Order getOrder() {
@@ -37,12 +43,21 @@ public class OrderWrapper {
   
   // Approved and confirmed are set by manufac 
   public enum State{
-    APPROVED, CONFIRMED,
+    APPROVED, CONFIRMED, DISMISSED, AWAITING_COMPS
   }
   public State getOrderState() {
     return orderState;
   }
   public void setOrderState(State orderState) {
     this.orderState = orderState;
+  }
+  public HashMap <ComputerComponent, Integer> getCompsAssigned() {
+    return compsAssigned;
+  }
+  public int getExpectedCompShipDate() {
+    return expectedCompShipDate;
+  }
+  public void setExpectedCompShipDate(int expectedCompShipDate) {
+    this.expectedCompShipDate = expectedCompShipDate;
   }
 }

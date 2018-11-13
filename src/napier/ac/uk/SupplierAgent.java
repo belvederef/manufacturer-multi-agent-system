@@ -25,6 +25,7 @@ import jade.domain.FIPAAgentManagement.DFAgentDescription;
 import jade.domain.FIPAAgentManagement.ServiceDescription;
 import jade.lang.acl.ACLMessage;
 import jade.lang.acl.MessageTemplate;
+import napier.ac.uk.helpers.SuppOrderWrapper;
 import napier.ac.uk_ontology.ShopOntology;
 import napier.ac.uk_ontology.actions.AskSuppInfo;
 import napier.ac.uk_ontology.actions.BuyComponents;
@@ -49,8 +50,10 @@ public abstract class SupplierAgent extends Agent {
   private HashMap<AID, ComputerComponent> componentsConfirmed = new HashMap<>(); 
   
   // These are overriden by the specific supplier implementations
-  protected int deliveryDays; // number of days for delivery
+  protected int suppDeliveryDays; // number of days for delivery
   protected HashMap<ComputerComponent, Integer> componentsForSale; // component, price
+  private ArrayList <SuppOrderWrapper> orders = new ArrayList<>();
+  private int day = 1;
 
   protected void setup() { }
 
@@ -112,10 +115,11 @@ public abstract class SupplierAgent extends Agent {
           myAgent.addBehaviour(os);
           cyclicBehaviours.add(os);
 
-          CyclicBehaviour sb = new SellBehaviour(myAgent);
+          CyclicBehaviour sb = new ReceiveRequests(myAgent);
           myAgent.addBehaviour(sb);
           cyclicBehaviours.add(sb);
 
+          myAgent.addBehaviour(new SendComponents(myAgent));
           myAgent.addBehaviour(new EndDayListener(myAgent, cyclicBehaviours));
         } else {
           // termination message to end simulation
@@ -152,6 +156,7 @@ public abstract class SupplierAgent extends Agent {
     }
   }
 
+  // Sends the supplier's catalogue to the manufacturer
   public class ReplySuppEnquiry extends CyclicBehaviour {
     private static final long serialVersionUID = 1L;
 
@@ -198,7 +203,7 @@ public abstract class SupplierAgent extends Agent {
               // Make message predicate
               SendSuppInfo sendSuppInfo = new SendSuppInfo();
               sendSuppInfo.setSupplier(myAgent.getAID());
-              sendSuppInfo.setSpeed(deliveryDays);
+              sendSuppInfo.setSpeed(suppDeliveryDays);
               sendSuppInfo.setComponentsForSaleKeys(compsKeys);
               sendSuppInfo.setComponentsForSaleVal(compsVals);
               
@@ -260,7 +265,7 @@ public abstract class SupplierAgent extends Agent {
             System.out.println("The component asked to supplier is " + components.toString());
 
             // Skip logic, we would need to check the stock but we have 
-            // unlimited stock in this example project accept all questions, 
+            // unlimited stock in this example project 
             ACLMessage reply = msg.createReply();
             reply.setPerformative(ACLMessage.CONFIRM);
             reply.setConversationId("component-selling");
@@ -281,10 +286,11 @@ public abstract class SupplierAgent extends Agent {
     }
   }
 
-  private class SellBehaviour extends CyclicBehaviour {
+  // Receive requests for component orders
+  private class ReceiveRequests extends CyclicBehaviour {
     private static final long serialVersionUID = 1L;
 
-    public SellBehaviour(Agent a) {
+    public ReceiveRequests(Agent a) {
       super(a);
     }
 
@@ -299,67 +305,80 @@ public abstract class SupplierAgent extends Agent {
       if (msg != null) {
         try {
           ContentElement ce = null;
-          System.out.println("\nmsg received in SellBehaviour is: " + msg.getContent()); // print out the message
+          System.out.println("\nmsg received in ReceiveRequests is: " + msg.getContent()); // print out the message
                                                                                          // content in SL
           ce = getContentManager().extractContent(msg);
           if (ce instanceof Action) {
             Concept action = ((Action) ce).getAction();
             if (action instanceof BuyComponents) {
               BuyComponents orderedComponents = (BuyComponents) action;
-              int quantity = (int) orderedComponents.getQuantity();
-              ArrayList<ComputerComponent> components = 
+              ArrayList<ComputerComponent> compList = 
                   (ArrayList<ComputerComponent>) orderedComponents.getComponents();
-
-              // Note: No need to remove from stock. Example project with unlimited stock
-
-              if (sendComponents(components, orderedComponents.getBuyer())) {
-                System.out.println("\nSent components " + components + " to " + orderedComponents.getBuyer());
-              } else {
-                System.out.println("\nCould not send component " + components + " to " + orderedComponents.getBuyer());
-              }
+              int quantity = (int) orderedComponents.getQuantity();
+              
+              // Note: No need to check stock. Example project with unlimited stock
+              
+              SuppOrderWrapper order = new SuppOrderWrapper();
+              order.setBuyer(msg.getSender());
+              order.setDeliveryDay(day + suppDeliveryDays);
+              order.setComponents(compList);
+              order.setQuantity(quantity);
+              orders.add(order); // Add to list of orders
+              
+              System.out.println("The supplier speed is " + suppDeliveryDays + ", today is day " 
+                  + day + ", the order will be sent on day " + suppDeliveryDays + day );
+              
+            } else {
+            System.out.println("Unknown predicate " + ce.getClass().getName());
             }
           }
-        }
-
-        catch (CodecException ce) {
+        } catch (CodecException ce) {
           ce.printStackTrace();
         } catch (OntologyException oe) {
           oe.printStackTrace();
         }
-
       } else {
         block();
       }
     }
+  }
+  
+  // Send components when the number of delivery days of the supplier have passed
+  private class SendComponents extends OneShotBehaviour {
+    private static final long serialVersionUID = 1L;
     
-    
-    private Boolean sendComponents(ArrayList<ComputerComponent> components, AID buyer) {
-      // Prepare the INFORM message.
-      ACLMessage msg = new ACLMessage(ACLMessage.INFORM);
-      msg.setLanguage(codec.getName());
-      msg.setOntology(ontology.getName()); 
-      msg.setConversationId("component-selling");
-      msg.addReceiver(buyer);
-      
-      ShipComponents shipComponents = new ShipComponents();
-      shipComponents.setBuyer(buyer);
-      shipComponents.setComponents(components);
-      
-      try {
-        // Fill content
-        getContentManager().fillContent(msg, shipComponents);
-        send(msg);
-        return true;
-       }
-       catch (CodecException ce) {
-        ce.printStackTrace();
-       }
-       catch (OntologyException oe) {
-        oe.printStackTrace();
-       } 
-      return false;
+    public SendComponents(Agent a) {
+      super(a);
     }
-
+    
+    @Override
+    public void action() {
+      for (SuppOrderWrapper order : orders) {
+        if (order.getDeliveryDay() != day) continue;
+        
+        // Prepare the INFORM message.
+        ACLMessage msg = new ACLMessage(ACLMessage.INFORM);
+        msg.setLanguage(codec.getName());
+        msg.setOntology(ontology.getName()); 
+        msg.setConversationId("component-selling");
+        msg.addReceiver(order.getBuyer());
+        
+        ShipComponents shipComponents = new ShipComponents();
+        shipComponents.setBuyer(order.getBuyer());
+        shipComponents.setComponents(order.getComponents());
+        shipComponents.setQuantity(order.getQuantity());
+        
+        try {
+          // Fill content
+          getContentManager().fillContent(msg, shipComponents);
+          send(msg);
+         } catch (CodecException ce) {
+          ce.printStackTrace();
+         } catch (OntologyException oe) {
+          oe.printStackTrace();
+         }   
+      }
+    }
   }
 
   public class EndDayListener extends CyclicBehaviour {
@@ -397,6 +416,7 @@ public abstract class SupplierAgent extends Agent {
           myAgent.removeBehaviour(b);
         }
         myAgent.removeBehaviour(this);
+        day++;
       }
     }
 

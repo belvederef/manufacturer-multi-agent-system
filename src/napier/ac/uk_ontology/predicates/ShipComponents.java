@@ -12,6 +12,7 @@ public class ShipComponents implements Predicate {
   
   private AID buyer;
   private ArrayList<ComputerComponent> components;
+  private int quantity;
   
   @Slot(mandatory = true)
   public AID getBuyer() {
@@ -26,5 +27,12 @@ public class ShipComponents implements Predicate {
   }
   public void setComponents(ArrayList<ComputerComponent> components) {
     this.components = components;
+  }
+  @Slot(mandatory = true)
+  public int getQuantity() {
+    return quantity;
+  }
+  public void setQuantity(int quantity) {
+    this.quantity = quantity;
   }
 }
