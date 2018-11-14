@@ -4,12 +4,9 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map.Entry;
 import java.util.stream.IntStream;
-import java.util.stream.Stream;
 
 import jade.content.Concept;
 import jade.content.ContentElement;
-import jade.content.abs.AbsPredicate;
-import jade.content.abs.AbsVariable;
 import jade.content.lang.Codec;
 import jade.content.lang.Codec.CodecException;
 import jade.content.lang.sl.SLCodec;
@@ -33,12 +30,21 @@ import napier.ac.uk_ontology.ShopOntology;
 import napier.ac.uk_ontology.actions.AskSuppInfo;
 import napier.ac.uk_ontology.actions.BuyComponents;
 import napier.ac.uk_ontology.actions.MakeOrder;
+import napier.ac.uk_ontology.computerComponents.CpuDesktop;
+import napier.ac.uk_ontology.computerComponents.CpuLaptop;
+import napier.ac.uk_ontology.computerComponents.HardDrive;
+import napier.ac.uk_ontology.computerComponents.MotherboardDesktop;
+import napier.ac.uk_ontology.computerComponents.MotherboardLaptop;
+import napier.ac.uk_ontology.computerComponents.OsLinux;
+import napier.ac.uk_ontology.computerComponents.OsWindows;
+import napier.ac.uk_ontology.computerComponents.Ram;
+import napier.ac.uk_ontology.computerComponents.Screen;
 import napier.ac.uk_ontology.concepts.Computer;
 import napier.ac.uk_ontology.concepts.ComputerComponent;
 import napier.ac.uk_ontology.concepts.Order;
 import napier.ac.uk_ontology.predicates.CanManufacture;
-import napier.ac.uk_ontology.predicates.SendSuppInfo;
 import napier.ac.uk_ontology.predicates.OwnsComponents;
+import napier.ac.uk_ontology.predicates.SendSuppInfo;
 import napier.ac.uk_ontology.predicates.ShipComponents;
 import napier.ac.uk_ontology.predicates.ShipOrder;
 
@@ -70,10 +76,35 @@ public class ManufactAgent extends Agent {
   private double totalProfit = 0;
   
   private AID tickerAgent;
-  private int day = 0;
+  private int day = 1;
   
   @Override
   protected void setup() {
+    // Testing
+//    ComputerComponent CpuL = new CpuLaptop();
+//    ComputerComponent CpuD = new CpuDesktop();
+//    ComputerComponent MotherboardD = new MotherboardDesktop();
+//    ComputerComponent MotherboardL = new MotherboardLaptop();
+//    ComputerComponent Ram1 = new Ram("8GB");
+//    ComputerComponent Ram2 = new Ram("16GB");
+//    ComputerComponent HardD1 = new HardDrive("1TB");
+//    ComputerComponent HardD2 = new HardDrive("2TB");
+//    ComputerComponent Screen = new Screen();
+//    ComputerComponent OsW = new OsWindows();
+//    ComputerComponent OsL = new OsLinux();
+//    warehouse.put(CpuL, 9000000);
+//    warehouse.put(CpuD, 9000000);
+//    warehouse.put(MotherboardD, 9000000);
+//    warehouse.put(MotherboardL, 9000000);
+//    warehouse.put(Ram1 , 9000000);
+//    warehouse.put(Ram2 , 9000000);
+//    warehouse.put(HardD1, 9000000);
+//    warehouse.put(HardD2, 9000000);
+//    warehouse.put(Screen , 9000000);
+//    warehouse.put(OsW, 9000000);
+//    warehouse.put(OsL, 9000000);
+    
+    
     getContentManager().registerLanguage(codec);
     getContentManager().registerOntology(ontology);
     
@@ -460,6 +491,13 @@ public class ManufactAgent extends Agent {
                 AID thisSupplier = suppAndCost.getKey();
                 int suppDelivDays = suppDeliveryDays.get(thisSupplier);
                 
+                // Note: getting everything through the cheaper supplier is definitively
+                // more profitable!
+                // test with cheaper supplier only
+//                if (suppDelivDays == 7) {
+//                  bestSupplier = thisSupplier;
+//                }
+                
                 if (bestSupplier == null && suppDelivDays <= daysDue) {
                     // If there is no best supplier, get the first that can deliver within the time limit
                   bestSupplier = thisSupplier;
@@ -517,13 +555,14 @@ public class ManufactAgent extends Agent {
 //        (p=50), and the cost  of  warehouse storage per-day per-component is  £5  
 //        (w=5).
         
-        // Send response
+        
           ACLMessage reply = msg.createReply();
-          if(profit > 0) { // if profit is positive
+          if(profit > 0) { 
             
             
             // Add to list of orders that we said yes to, but not yet confirmed
             orderWpr.setOrderState(OrderWrapper.State.APPROVED);
+            orderWpr.setExactDayDue(orderWpr.getOrder().getDueInDays() + day);
             orders.add(orderWpr);
             
 //            if (ordersApproved.containsKey(msg.getSender())) {
@@ -539,6 +578,7 @@ public class ManufactAgent extends Agent {
             
             System.out.println("\nSending response to the customer. We accept.");
           } else {
+            System.out.println("\nThe order is not profitable enough for the manuf. We decline.");
             reply.setPerformative(ACLMessage.DISCONFIRM);
           }
           myAgent.send(reply);
@@ -660,6 +700,11 @@ public class ManufactAgent extends Agent {
         
       case 2:
         // Send order message to supplier if they have the components in stock
+        // TODO: send money when you request to buy a component
+        // Note: here we request the to buy the components. 
+        // in a real system, if the supplier only owned a set quantity of components, we would
+        // buy that quantity and buy the remaining from a more expensive supplier, perhaps.
+        // This was out of the scope for this simple model.
         MessageTemplate cmt = MessageTemplate.and(
             MessageTemplate.MatchPerformative(ACLMessage.CONFIRM),
             MessageTemplate.MatchConversationId("component-selling"));
@@ -694,10 +739,10 @@ public class ManufactAgent extends Agent {
                getContentManager().fillContent(orderMsg, request); //send the wrapper object
                send(orderMsg);
                orderWpr.setOrderState(OrderWrapper.State.AWAITING_COMPS);
-               orderWpr.setExpectedCompShipDate(day + suppDeliveryDays.get(supplier));
-               TODO IMPORTANT: WE ARE NOW AWAITING THE COMPONENTS. THIS FUNCTION SHOULD
-               STOP HERE. RECEIVING THE COMPONENTS SHOULD HAPPENED IN THE ANOTHER ONESHOTBEHAV
-               LOOP THROUGH THE ORDERS THAT HAVE AN EXPECTED SHIP DATE EQUAL TO TODAY
+               orderWpr.setExpectedCompsShipDate(day + suppDeliveryDays.get(supplier));
+//               TODO IMPORTANT: WE ARE NOW AWAITING THE COMPONENTS. THIS FUNCTION SHOULD
+//               STOP HERE. RECEIVING THE COMPONENTS SHOULD HAPPENED IN THE ANOTHER ONESHOTBEHAV
+//               LOOP THROUGH THE ORDERS THAT HAVE AN EXPECTED SHIP DATE EQUAL TO TODAY
                step = 0;
                System.out.println("Sending order request to supplier. msg is: " + orderMsg);
             } catch (CodecException ce) {
@@ -714,105 +759,7 @@ public class ManufactAgent extends Agent {
         }
         break;
         
-      case 3:
-        // Receive components
-        MessageTemplate rcmt = MessageTemplate.and(
-            MessageTemplate.MatchPerformative(ACLMessage.INFORM),
-            MessageTemplate.MatchConversationId("component-selling"));
-        ACLMessage rcMsg = receive(rcmt);
-        
-        if(rcMsg != null){
-          try {
-            ContentElement ce = null;
-            
-            // Print out the message content in SL
-            System.out.println("\nMessage received by manufacturer from supplier " + rcMsg.getContent()); 
-
-            ce = getContentManager().extractContent(rcMsg);
-            if (ce instanceof ShipComponents) {
-              ShipComponents shipComponents = (ShipComponents) ce;
-              ArrayList<ComputerComponent> compList = shipComponents.getComponents();
-              int quantity = shipComponents.getQuantity();
-              
-              // The components received get assigned to the order they were for
-              for (ComputerComponent comp : compList) {
-                orderWpr.getCompsAssigned().put(comp, quantity);
-              }
-              
-              // Extract the received component and print it
-              System.out.println("Received " + quantity + " components: " + compList);
-              
-              step = 0;
-            } else {
-                System.out.println("Unknown predicate " + ce.getClass().getName());
-            }
-          }
-          catch (CodecException ce) {
-            ce.printStackTrace();
-          }
-          catch (OntologyException oe) {
-            oe.printStackTrace();
-          }
-        } else{
-          block();
-        }
-        break;
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
       }
-//      MessageTemplate mt = MessageTemplate.and(
-//          MessageTemplate.MatchPerformative(ACLMessage.REQUEST),
-//          MessageTemplate.MatchConversationId("customer-order"));
-//      ACLMessage msg = receive(mt);
-//      
-//      if(msg != null){
-//        try {
-//          ContentElement ce = null;
-//          System.out.println("\nmessage received in CollectOrderRequests is: " + msg.getContent());
-//
-//          // Let JADE convert from String to Java objects
-//          ce = getContentManager().extractContent(msg);
-//          if(ce instanceof Action) {
-//            Concept action = ((Action)ce).getAction();
-//            if (action instanceof MakeOrder) {
-//              MakeOrder makeOrder = (MakeOrder)action;
-//                           
-//              int idxOrder = IntStream.range(0, orders.size())
-//                  .filter(i -> makeOrder.getOrder().equals(orders.get(i).getOrder()))
-//                  .findFirst()
-//                  .orElse(-1);
-//              // if the order was approved, change its state from approved to confirmed 
-//              if (idxOrder != -1 
-//                  && orders.get(idxOrder).getOrderState() == OrderWrapper.State.APPROVED) {
-//                orders.get(idxOrder).setOrderState(OrderWrapper.State.CONFIRMED);
-//                System.out.println("\nAdded to confirmed orders. List of orders at "
-//                    + "the end of CollectOrderRequests is: " + orders);
-//              } else {
-//                // If the order was not approved in the previous step, don't accept order request
-//                System.out.println("\nThis order was not approved! Cannot process order!");
-//              }
-//              
-//            }
-//          }
-//        } catch (CodecException ce) {
-//          ce.printStackTrace();
-//        } catch (OntologyException oe) {
-//          oe.printStackTrace();
-//        } catch (Exception e) {
-//          e.printStackTrace();
-//        }
-//      } else {
-//        block();
-//      }
     }
 
     @Override
@@ -832,178 +779,10 @@ public class ManufactAgent extends Agent {
   }
   
   
-  public class AskIfCanBuy extends OneShotBehaviour {
+  // Receive the components that we are awaiting from the supplier
+  public class ReceiveComponents extends OneShotBehaviour {
+    // TODO: probably add here the logic that asks to get the single components to fill the warehouse 
     private static final long serialVersionUID = 1L;
-    // Note: here we ask if the supplier owns the component and the quantity we need 
-    // in a real system, if the supplier only owned a set quantity of components, we would
-    // buy that quantity and buy the remaining from a more expensive supplier, perhaps.
-    // This was out of the scope for this simple model.
-    
-    // TODO: This should be equal to the number or components that I need to query
-    // TODO: change OwnsComponent with smth like askIfCanBuy. Better than just asking
-    // if they have the things
-//    private int ordersAsked = 0;
-
-    public AskIfCanBuy(Agent a) {
-      super(a);
-    }
-
-    @Override
-    public void action() {      
-      // TODO: this behaviour throws an error because it executes before ordersConfirmed is populated
-      // TODO: this should run only after we add all requests to the confirmed order. Might achieve this with sequential behaviour
-      // TODO: add logic to decide to which seller we want to send the message to and change suppliers.get(0) to the chosen one
-      
-      // Prepare the Query-IF message. Asks the supplier if they will accept the order
-      
-      // this should only run if something along the lines of this happens: 
-      // for each of the components that I need, if I didnt ask for that component yet or if
-      // my question did not get accepted, keep asking
-      
-//      for (AID cust : ordersConfirmed.keySet()) { // for each customer
-//        for (Order order : ordersConfirmed.get(cust)) { // for each cust order
-      
-
-//      I NEED TO KEEP A REFERENCE TO ORDER, CAUSE IN THE LATER STEP WHEN THE SUPPLIER
-//      REPLIES TO MY QUERY IF I NEED TO ""REQUEST"" THE SAME ORDER
-      
-      for (OrderWrapper orderWpr : orders) {
-        // Send requests only for confirmed orders
-        if (orderWpr.getOrderState() != OrderWrapper.State.CONFIRMED) continue;
-        
-        AID supplier = orderWpr.getSupplierAssigned();  
-        
-        ACLMessage msg = new ACLMessage(ACLMessage.QUERY_IF);
-        msg.setLanguage(codec.getName());
-        msg.setOntology(ontology.getName()); 
-        msg.addReceiver(supplier);
-        msg.setConversationId("component-selling");
-        
-        OwnsComponents ownsComps = new OwnsComponents();
-        ownsComps.setOwner(supplier);
-        ownsComps.setQuantity(orderWpr.getOrder().getQuantity());
-        
-        try {
-          // Note: something that could be done in a real system is, if supplier doesnt have 
-          // the components that we require, buy from the second best only the ones that 
-          // the best cant give us 
-          ownsComps.setComponents(orderWpr.getOrder().getComputer().getComponentList());                            
-          getContentManager().fillContent(msg, ownsComps);
-          send(msg);
-//          ordersAsked++;
-         } catch (CodecException ce) {
-          ce.printStackTrace();
-         } catch (OntologyException oe) {
-          oe.printStackTrace();
-         } catch (Exception e) {
-           e.printStackTrace();
-         }
-      }
-    }
-
-//    @Override
-//    public boolean done() {
-//      return ordersAsked == orders.stream()
-//        .filter(o -> o.getOrderState() == OrderManuf.State.CONFIRMED).count();
-//    }
-  }
-
-  
-  public class BuyComponentAction extends Behaviour {
-    private static final long serialVersionUID = 1L;
-    
-    // Make order for a component if the manufacturer said they accepted it
-    // Otherwise proceed to end the day
-    
-    // TODO: using the boolean value below only works if we are dealing with one supplier!
-    // Change logic for dealing with more suppliers
-    
-    // TODO: This should be equal to the number of components that I need to request
-    
-    // TODO: send money when you request to buy a component
-    private int requestsSent = 0;
-    
-    public BuyComponentAction(Agent a) {
-      super(a);
-    }
-
-    @Override
-    public void action() {
-      MessageTemplate mt = MessageTemplate.and(
-          MessageTemplate.MatchPerformative(ACLMessage.CONFIRM),
-          MessageTemplate.MatchConversationId("component-selling"));
-      
-      ACLMessage msg = myAgent.receive(mt);
-      System.out.println("\nmessage received in BuyComponentAction is: " + msg);
-      if(msg != null) {
-//        replyReceived = true;
-        if(msg.getPerformative() == ACLMessage.CONFIRM) {
-          // The supplier has the components in stock and confirmed
-          System.out.println("\nThe supplier has the components in stock and confirmed! YAY! Now making request...");
-          
-          // Prepare the action request message
-          ACLMessage orderMsg = new ACLMessage(ACLMessage.REQUEST);
-          orderMsg.setLanguage(codec.getName());
-          orderMsg.setOntology(ontology.getName()); 
-          orderMsg.setConversationId("component-selling");
-          orderMsg.addReceiver(msg.getSender());
-          
-//          try {            
-//            // Lets take into consideration the orders of the first customer
-//            ArrayList<Order> firstCustOrders = ordersConfirmed.get(customers.get(0));
-//            
-//            // Prepare the content. 
-//            BuyComponents buyComponent = new BuyComponents();
-//            buyComponent.setBuyer(myAgent.getAID());
-//            buyComponent.setComponent(firstCustOrders.get(0).getComputer().getCpu());
-//            
-//            Action request = new Action();
-//            request.setAction(buyComponent);
-//            request.setActor(suppliers.get(0));
-//  
-//             getContentManager().fillContent(orderMsg, request); //send the wrapper object
-//             send(orderMsg);
-//             requestsSent++;
-//             System.out.println("Sending order request to supplier. msg is: " + orderMsg);
-//             // Add this order to the list of ordered components that we are awaiting to receive
-////             componentsOrdered.add(firstCustOrders.get(0).getComputer().getCpu()); 
-//          }
-//          catch (CodecException ce) {
-//           ce.printStackTrace();
-//          }
-//          catch (OntologyException oe) {
-//           oe.printStackTrace();
-//          } 
-        } else if(msg.getPerformative() == ACLMessage.REFUSE) {
-          // The order was not accepted
-          System.out.println("\nThe supplier did not accept the component order!");
-        }
-      } else {
-        block();
-      }
-    }
-
-    @Override
-    public boolean done() {
-      System.out.println("BuyComponentAction is done. requestsSent is: " + requestsSent);
-      // TODO: change this
-      return requestsSent >= 1;
-    }
-
-    @Override
-    public int onEnd() {
-      // Do something on end
-      return 0;
-    }
-
-  }
-  
-  // Receive the components asked to fill the warehouse, not yet assigned to orders
-  public class ReceiveComponents extends Behaviour {
-    // TODO: probably add here the logic that asks to get 
-    private static final long serialVersionUID = 1L;
-    
-    private int componentsReceived = 0;
     
     public ReceiveComponents(Agent a) {
       super(a);
@@ -1016,56 +795,56 @@ public class ManufactAgent extends Agent {
       MessageTemplate mt = MessageTemplate.and(
           MessageTemplate.MatchPerformative(ACLMessage.INFORM),
           MessageTemplate.MatchConversationId("component-selling"));
-      ACLMessage msg = receive(mt);
       
-      if(msg != null){
-        try {
-          ContentElement ce = null;
-          
-          // Print out the message content in SL
-          System.out.println("\nMessage received by manufacturer from supplier " + msg.getContent()); 
-
-          ce = getContentManager().extractContent(msg);
-          if (ce instanceof ShipComponents) {
-            ShipComponents shipComponents = (ShipComponents) ce;
-            ArrayList<ComputerComponent> compList = shipComponents.getComponents();
-            int quantity = shipComponents.getQuantity();
+      
+      for (OrderWrapper orderWpr : orders) {
+        if (orderWpr.getExpectedCompsShipDate() != day) continue;
+      
+        ACLMessage msg = receive(mt);
+        
+        if(msg != null){
+          try {
+            ContentElement ce = null;
             
-            // The components received get added to the warehouse
-            for (ComputerComponent comp : compList) {
-              warehouse.put(comp, quantity);
+            // Print out the message content in SL
+            System.out.println("\nMessage received by manufacturer from supplier " + msg.getContent()); 
+  
+            ce = getContentManager().extractContent(msg);
+            if (ce instanceof ShipComponents) {
+              ShipComponents shipComponents = (ShipComponents) ce;
+              ArrayList<ComputerComponent> compList = shipComponents.getComponents();
+              int quantity = shipComponents.getQuantity();
+              
+              // The components received get added to the warehouse
+              for (ComputerComponent comp : compList) {
+                warehouse.put(comp, quantity);
+              }
+              
+              // Extract the received component and print it
+              System.out.println("Received " + quantity + " components: " + compList);
+            } else {
+                System.out.println("Unknown predicate " + ce.getClass().getName());
             }
-            
-            // Extract the received component and print it
-            System.out.println("Received " + quantity + " components: " + compList);
-            componentsReceived++;
-          } else {
-              System.out.println("Unknown predicate " + ce.getClass().getName());
           }
+          catch (CodecException ce) {
+            ce.printStackTrace();
+          }
+          catch (OntologyException oe) {
+            oe.printStackTrace();
+          }
+        } else{
+          block();
         }
-        catch (CodecException ce) {
-          ce.printStackTrace();
-        }
-        catch (OntologyException oe) {
-          oe.printStackTrace();
-        }
-      } else{
-        block();
       }
       
-    }
-    @Override
-    public boolean done() {
-      // TODO Auto-generated method stub
-      return componentsReceived >= 1;
     }
   }
   
   
-  private class ManufactureAndSend extends Behaviour {
+  // Note: can experiment with the strategy of sorting the orders by dueDate and ship to the ones
+  // that have a closer duedate, regardless of if the components were for these orders or not
+  private class ManufactureAndSend extends OneShotBehaviour {
     private static final long serialVersionUID = 1L;
-    
-    private int sentOrders = 0;
 
     public ManufactureAndSend(Agent a) {
       super(a);
@@ -1077,41 +856,60 @@ public class ManufactAgent extends Agent {
       // If have enough components, manufacture components into an order and send to customer
       // TODO: remove components from warehouse list when using them
       
-      AID cust = customers.get(0);
-      Order order = ordersConfirmed.get(cust).get(0);
+      // sort orders by due date
+      orders.sort((OrderWrapper o1, OrderWrapper o2)->
+        o1.getOrder().getDueInDays()-o2.getOrder().getDueInDays()); 
       
-      // Prepare the INFORM message. Asks the manufacturer to if they will accept the order
-      ACLMessage msg = new ACLMessage(ACLMessage.INFORM);
-      msg.setLanguage(codec.getName());
-      msg.setOntology(ontology.getName()); 
-      msg.addReceiver(cust);
-      
-      ShipOrder shipOrder = new ShipOrder();
-      shipOrder.setBuyer(cust);
-      shipOrder.setOrder(order);
-      
-      try {
-        // Fill content
-        getContentManager().fillContent(msg, shipOrder);
-        send(msg);
-        sentOrders++;
-        System.out.println("Sending order " + order + " to cust " + cust.getLocalName());
-       }
-       catch (CodecException ce) {
-        ce.printStackTrace();
-       }
-       catch (OntologyException oe) {
-        oe.printStackTrace();
-       } 
-    }
-      
+      for (OrderWrapper orderWpr : orders) {
+//        if (order.getOrderState() != OrderWrapper.State.AWAITING_COMPS) continue;
+        
+        // If comps are available
+        Boolean allCompsAvailable = true;
+        for (ComputerComponent comp : orderWpr.getOrder().getComputer().getComponentList()) {
+          // If there are not enough components in the warehouse, flag as false
+          // Dont mind linux. It doesnt need a licence
+          if(!warehouse.containsKey(comp) || 
+              (warehouse.containsKey(comp) && comp.getClass() != OsLinux.class &&
+               warehouse.get(comp) < orderWpr.getOrder().getQuantity())) {
+            allCompsAvailable = false;
+            break;
+          }
+        }
+        if (!allCompsAvailable) continue;
+        
+        
+        ACLMessage msg = new ACLMessage(ACLMessage.INFORM);
+        msg.setLanguage(codec.getName());
+        msg.setOntology(ontology.getName()); 
+        msg.setConversationId("customer-order");
+        msg.addReceiver(orderWpr.getCustomer());
+        
+        ShipOrder shipOrder = new ShipOrder();
+        shipOrder.setBuyer(orderWpr.getCustomer());
+        shipOrder.setOrder(orderWpr.getOrder());
+        
+        try {
+          // Fill content
+          getContentManager().fillContent(msg, shipOrder);
+          send(msg);
+          orderWpr.setOrderState(OrderWrapper.State.COMPLETED);
+          
+          // Remove used components from warehouse 
+          for (ComputerComponent comp : orderWpr.getOrder().getComputer().getComponentList()) {
+           warehouse.put(comp, warehouse.get(comp) - orderWpr.getOrder().getQuantity());
+          }
 
-    @Override
-    public boolean done() {
-      // TODO Auto-generated method stub
-      return sentOrders >= 1;
+          System.out.println("Sending order " + orderWpr + " to cust " + orderWpr.getCustomer());
+         }
+         catch (CodecException ce) {
+          ce.printStackTrace();
+         }
+         catch (OntologyException oe) {
+          oe.printStackTrace();
+         } 
+        
+      }
     }
-
   }
   
   
@@ -1124,8 +922,23 @@ public class ManufactAgent extends Agent {
 
     @Override
     public void action() {
-      // TODO: Calculate loss on profit (for each of the components in the warehouse)
-      // total profit - components
+      // Storage fee
+      for (ComputerComponent comp : warehouse.keySet()) {
+        // OSs dont take up space in the warehouse
+        if (comp.getClass() == OsLinux.class || comp.getClass() == OsWindows.class) continue;
+        double loss = warehouse.get(comp) * 5;
+        dailyProfit -= loss;
+      }
+      
+      for (OrderWrapper orderWpr : orders) {
+        // Calc late delivery fee
+        if (orderWpr.getExactDayDue() <= day) {
+          dailyProfit -= 50;
+        }
+      }
+
+      // Once calculation is done, remove the orders flagged as completed
+      orders.removeIf(o -> o.getOrderState() == OrderWrapper.State.COMPLETED); 
       
       // Add to the total profit
       totalProfit += dailyProfit;

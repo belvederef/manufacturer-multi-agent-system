@@ -15,7 +15,8 @@ public class OrderWrapper {
   private AID customer;
   private State orderState;
   private HashMap <ComputerComponent, Integer> compsAssigned;
-  private int expectedCompShipDate;
+  private int expectedCompsShipDate;
+  private int exactDayDue; // The exact date that an order needs to be delivered by. Used to calc late delivery
     
   public OrderWrapper(Order order) {
     this.setOrder(order);
@@ -43,7 +44,7 @@ public class OrderWrapper {
   
   // Approved and confirmed are set by manufac 
   public enum State{
-    APPROVED, CONFIRMED, DISMISSED, AWAITING_COMPS
+    APPROVED, CONFIRMED, DISMISSED, AWAITING_COMPS, COMPLETED
   }
   public State getOrderState() {
     return orderState;
@@ -54,10 +55,16 @@ public class OrderWrapper {
   public HashMap <ComputerComponent, Integer> getCompsAssigned() {
     return compsAssigned;
   }
-  public int getExpectedCompShipDate() {
-    return expectedCompShipDate;
+  public int getExpectedCompsShipDate() {
+    return expectedCompsShipDate;
   }
-  public void setExpectedCompShipDate(int expectedCompShipDate) {
-    this.expectedCompShipDate = expectedCompShipDate;
+  public void setExpectedCompsShipDate(int expectedCompsShipDate) {
+    this.expectedCompsShipDate = expectedCompsShipDate;
+  }
+  public int getExactDayDue() {
+    return exactDayDue;
+  }
+  public void setExactDayDue(int exactDayDue) {
+    this.exactDayDue = exactDayDue;
   }
 }

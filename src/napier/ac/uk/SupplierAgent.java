@@ -326,7 +326,7 @@ public abstract class SupplierAgent extends Agent {
               orders.add(order); // Add to list of orders
               
               System.out.println("The supplier speed is " + suppDeliveryDays + ", today is day " 
-                  + day + ", the order will be sent on day " + suppDeliveryDays + day );
+                  + day + ", the order will be sent on day " + (suppDeliveryDays + day) );
               
             } else {
             System.out.println("Unknown predicate " + ce.getClass().getName());

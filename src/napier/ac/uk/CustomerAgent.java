@@ -112,7 +112,8 @@ public class CustomerAgent extends Agent {
 //          dailyActivity.addSubBehaviour(new ReceiveOrder(myAgent));
           dailyActivity.addSubBehaviour(new EndDay(myAgent));
           
-       // Made cyclic so we dont need to know the number of orders we are expecting for each day
+          // Made cyclic so we dont need to know the number of orders we are expecting for each day
+          // as they could be delayed anyway
           myAgent.addBehaviour(new ReceiveOrder(myAgent)); 
           
           myAgent.addBehaviour(dailyActivity);
@@ -344,21 +345,16 @@ public class CustomerAgent extends Agent {
           if (ce instanceof ShipOrder) {
             ShipOrder shipOrder = (ShipOrder) ce;
             Order order = (Order) shipOrder.getOrder();
-
-            int idxOrder = currentOrders.indexOf(order);
-            if (idxOrder != -1) {
-              System.out.println("customer " + myAgent.getLocalName() + " received order we were expecting");
-              currentOrders.remove(idxOrder);
-              receivedOrders.add(order);
-            } else {
-              // Not an order we were expecting
-              System.out.println("customer " + myAgent.getLocalName() + " received order we were not expecting");
-            }
             
-            // Extract the received component and print it
+         // Extract the received component and print it
             System.out.println("\ncustomer " + getLocalName() + " received order " + order.toString());
-            
+            currentOrders.remove(order); // TODO: current order is not removed
+            receivedOrders.add(order);
+                          
             // TODO: transfer payment at reception of order
+            
+            
+            
           } else {
             System.out.println("Unknown predicate " + ce.getClass().getName());
           }
@@ -372,7 +368,6 @@ public class CustomerAgent extends Agent {
       } else {
         block();
       }
-      
     }
   }
   
