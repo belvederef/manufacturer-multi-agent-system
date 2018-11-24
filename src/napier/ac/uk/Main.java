@@ -10,16 +10,14 @@ public class Main {
 	public static void main(String[] args) {
 		Profile myProfile = new ProfileImpl();
 		Runtime myRuntime = Runtime.instance();
+		
 		try{
 			ContainerController myContainer = myRuntime.createMainContainer(myProfile);	
 			AgentController rma = myContainer.createNewAgent("rma", "jade.tools.rma.rma", null);
 			rma.start();
 			
-//			AgentController simulationAgent = myContainer.createNewAgent("buyer1", BuyerAgent.class.getCanonicalName(), null);
-//			simulationAgent.start();
-			
-			// Customers of the systems. Shops that make orders for a number of computers 
-	  int numCustomers = 3;
+			// Create three identica customers
+			int numCustomers = 3;
       AgentController customer;
       for(int i=0; i<numCustomers; i++) {
         customer = myContainer.createNewAgent("customer" + i, 
@@ -27,9 +25,11 @@ public class Main {
         customer.start();
       }
       	      
+      
 			// Create the three suppliers
-      // TODO: instead of doing this, I could read the prices from a csv file and just use the same supplier agent
-      // and pass the different list of prices as an argument
+      // Note: argue that as the different suppliers have different names, components list
+      // prices and delivery times they are essentially different suppliers, thus must inherit
+      // only the commong methods from a parent supplier class (which are all apart from the setup)
       AgentController supplierSlow = myContainer.createNewAgent("supplierSlow", 
           SupplierSlowAgent.class.getCanonicalName(), null);
       AgentController supplierMed = myContainer.createNewAgent("supplierMed", 
@@ -46,7 +46,7 @@ public class Main {
       manufactAgent.start();
 			
 			
-      // Create the ticker agent that defines working days
+      // Create the ticker agent that keeps track of the working days
 			AgentController tickerAgent = myContainer.createNewAgent("ticker", 
 			    Ticker.class.getCanonicalName(), null);
 			tickerAgent.start();
@@ -55,8 +55,5 @@ public class Main {
 		catch(Exception e){
 			System.out.println("Exception starting agent: " + e.toString());
 		}
-
-
 	}
-
 }

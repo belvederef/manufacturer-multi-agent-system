@@ -42,20 +42,16 @@ public abstract class SupplierAgent extends Agent {
   private Ontology ontology = ShopOntology.getInstance();
 
   private AID tickerAgent;
+  private int day = 1; // day count
+  
   private ArrayList<AID> buyers = new ArrayList<>();
-
-  // List of the components order we said yes to
-  private HashMap<AID, ComputerComponent> componentsApproved = new HashMap<>(); 
-  // List of the components and the agents that they are for
-  private HashMap<AID, ComputerComponent> componentsConfirmed = new HashMap<>(); 
+  private ArrayList <SuppOrderWrapper> orders = new ArrayList<>();
   
   // These are overriden by the specific supplier implementations
-  protected int suppDeliveryDays; // number of days for delivery
   protected HashMap<ComputerComponent, Integer> componentsForSale; // component, price
-  private ArrayList <SuppOrderWrapper> orders = new ArrayList<>();
-  private int day = 1;
+  protected int suppDeliveryDays; // number of days needed for delivery
 
-  protected void setup() { }
+  protected void setup() {}
 
   protected void register() {
     getContentManager().registerLanguage(codec);
@@ -107,7 +103,7 @@ public abstract class SupplierAgent extends Agent {
 
           ArrayList<Behaviour> cyclicBehaviours = new ArrayList<>();
 
-          CyclicBehaviour rse = new ReplySuppEnquiry(myAgent);
+          CyclicBehaviour rse = new ReplySuppInfo(myAgent);
           myAgent.addBehaviour(rse);
           cyclicBehaviours.add(rse);
           
@@ -147,7 +143,7 @@ public abstract class SupplierAgent extends Agent {
           buyers.clear();
           DFAgentDescription[] agentsType = DFService.search(myAgent, buyerTemplate);
           for (int i = 0; i < agentsType.length; i++) {
-            buyers.add(agentsType[i].getName()); // this is the AID
+            buyers.add(agentsType[i].getName());
           }
         } catch (FIPAException e) {
           e.printStackTrace();
@@ -157,10 +153,10 @@ public abstract class SupplierAgent extends Agent {
   }
 
   // Sends the supplier's catalogue to the manufacturer
-  public class ReplySuppEnquiry extends CyclicBehaviour {
+  public class ReplySuppInfo extends CyclicBehaviour {
     private static final long serialVersionUID = 1L;
 
-    public ReplySuppEnquiry(Agent a) {
+    public ReplySuppInfo(Agent a) {
       super(a);
     }
 
@@ -174,14 +170,14 @@ public abstract class SupplierAgent extends Agent {
       if (msg != null) {
         try {
           ContentElement ce = null;
-          System.out.println("\nmsg received in ReplySuppEnquiry is: " + msg.getContent()); // print out the message
+          System.out.println("\nmsg received in ReplySuppInfo is: " + msg.getContent()); // print out the message
                                                                                          // content in SL
           ce = getContentManager().extractContent(msg);
           if (ce instanceof Action) {
             Concept action = ((Action)ce).getAction();
             if (action instanceof AskSuppInfo) {
               
-              // Prepare the INFORM message. Sends own details to manufacturer
+              // Sends supp details to manufacturer in INFORM message
               ACLMessage reply = msg.createReply(); 
               reply.setPerformative(ACLMessage.INFORM);
               
@@ -189,10 +185,6 @@ public abstract class SupplierAgent extends Agent {
               ArrayList<ComputerComponent> compsKeys = new ArrayList<>();
               ArrayList<Long> compsVals = new ArrayList<>();
               
-              
-              // TODO: I could send a list of components that I need in the request message 
-              // so that this seller agent only returns the prices for the components that I requested
-              // run a if statement here. Probably I dont need to care about this for this sample program
               for (Map.Entry<ComputerComponent, Integer> entry : componentsForSale.entrySet()) {
                 ComputerComponent key = entry.getKey();
                 long value = entry.getValue().longValue();
@@ -228,7 +220,7 @@ public abstract class SupplierAgent extends Agent {
     }
   }
   
-  // Replies that they own the number of components asked
+  // Replies wether the supplier owns the number of components asked
   public class OffersServer extends CyclicBehaviour {
     private static final long serialVersionUID = 1L;
 
@@ -238,7 +230,6 @@ public abstract class SupplierAgent extends Agent {
 
     @Override
     public void action() {
-      // TODO: attach price with msg.setcontent()
       MessageTemplate mt = MessageTemplate.and(
           MessageTemplate.MatchPerformative(ACLMessage.QUERY_IF),
           MessageTemplate.MatchConversationId("component-selling"));
@@ -248,29 +239,19 @@ public abstract class SupplierAgent extends Agent {
         System.out.println("In supplier offerserver. msg: " + msg);
         try {
           ContentElement ce = null;
-
-          // Print out the message content in SL
-          System.out.println("Component message asked by manufacturer is: " + msg.getContent());
-
-          // Let JADE convert from String to Java objects
-          // Output will be a ContentElement
           ce = getContentManager().extractContent(msg);
+          
           if (ce instanceof OwnsComponents) {
             OwnsComponents ownsComponents = (OwnsComponents) ce;
             int quantity = (int) ownsComponents.getQuantity();
             ArrayList<ComputerComponent> components = 
                 (ArrayList<ComputerComponent>) ownsComponents.getComponents();
 
-            // Extract the component print it
-            System.out.println("The component asked to supplier is " + components.toString());
-
-            // Skip logic, we would need to check the stock but we have 
-            // unlimited stock in this example project 
+            // Skip logic, we would need to check the stock but we have unlimited stock in this example project 
+            
             ACLMessage reply = msg.createReply();
             reply.setPerformative(ACLMessage.CONFIRM);
             reply.setConversationId("component-selling");
-
-            System.out.println("\nSending response to the manufacturer. We own the component. reply: " + reply);
             myAgent.send(reply);
           } else {
             System.out.println("Unknown predicate " + ce.getClass().getName());
@@ -305,9 +286,8 @@ public abstract class SupplierAgent extends Agent {
       if (msg != null) {
         try {
           ContentElement ce = null;
-          System.out.println("\nmsg received in ReceiveRequests is: " + msg.getContent()); // print out the message
-                                                                                         // content in SL
           ce = getContentManager().extractContent(msg);
+          
           if (ce instanceof Action) {
             Concept action = ((Action) ce).getAction();
             if (action instanceof BuyComponents) {
@@ -316,14 +296,12 @@ public abstract class SupplierAgent extends Agent {
                   (ArrayList<ComputerComponent>) orderedComponents.getComponents();
               int quantity = (int) orderedComponents.getQuantity();
               
-              // Note: No need to check stock. Example project with unlimited stock
-              
               SuppOrderWrapper order = new SuppOrderWrapper();
               order.setBuyer(msg.getSender());
               order.setDeliveryDay(day + suppDeliveryDays);
               order.setComponents(compList);
               order.setQuantity(quantity);
-              orders.add(order); // Add to list of orders
+              orders.add(order); // Add to total list of orders
               
               System.out.println("The supplier speed is " + suppDeliveryDays + ", today is day " 
                   + day + ", the order will be sent on day " + (suppDeliveryDays + day) );
@@ -369,14 +347,13 @@ public abstract class SupplierAgent extends Agent {
         shipComponents.setQuantity(order.getQuantity());
         
         try {
-          // Fill content
           getContentManager().fillContent(msg, shipComponents);
           send(msg);
-         } catch (CodecException ce) {
+        } catch (CodecException ce) {
           ce.printStackTrace();
-         } catch (OntologyException oe) {
+        } catch (OntologyException oe) {
           oe.printStackTrace();
-         }   
+        }   
       }
     }
   }
@@ -396,22 +373,23 @@ public abstract class SupplierAgent extends Agent {
     public void action() {
       MessageTemplate mt = MessageTemplate.MatchContent("done");
       ACLMessage msg = myAgent.receive(mt);
-//      System.out.println("buyers.size(): " + buyers.size());
+      
       if (msg != null) {
         buyersFinished++;
-//        System.out.println("buyersFinished++: " + buyersFinished);
       } else {
         block();
       }
       
       if (buyersFinished == buyers.size()) {
         System.out.println("SUPPLIER " + myAgent.getName() + " IS DONE");
-        // We are finished
+
+        // Inform the ticker that we are done
         ACLMessage tick = new ACLMessage(ACLMessage.INFORM);
         tick.setContent("done");
         tick.addReceiver(tickerAgent);
         myAgent.send(tick);
-        // remove behaviours
+        
+        // Remove cyclic behaviours
         for (Behaviour b : toRemove) {
           myAgent.removeBehaviour(b);
         }

@@ -2,6 +2,7 @@ package napier.ac.uk;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Map;
 import java.util.Map.Entry;
 import java.util.stream.IntStream;
 
@@ -26,6 +27,7 @@ import jade.domain.FIPAAgentManagement.ServiceDescription;
 import jade.lang.acl.ACLMessage;
 import jade.lang.acl.MessageTemplate;
 import napier.ac.uk.helpers.OrderWrapper;
+import napier.ac.uk.helpers.SupplierHelper;
 import napier.ac.uk_ontology.ShopOntology;
 import napier.ac.uk_ontology.actions.AskSuppInfo;
 import napier.ac.uk_ontology.actions.BuyComponents;
@@ -55,22 +57,11 @@ public class ManufactAgent extends Agent {
   private Codec codec = new SLCodec();
   private Ontology ontology = ShopOntology.getInstance();
   
-  private ArrayList<AID> suppliers = new ArrayList<>();
+  private HashMap<AID, SupplierHelper> suppliers = new HashMap<>();
   private ArrayList<AID> customers = new ArrayList<>();
   
   private ArrayList<OrderWrapper> orders = new ArrayList<>();
-//  private HashMap<AID, ArrayList<Order>> ordersApproved = new HashMap<>(); // List of the orders we said yes to
-  // Note: having an additional list prevents an agent to simply request us to complete an order. 
-  // They can only ask, if we said yes then they could request us to complete the order.
-//  private HashMap<AID, ArrayList<Order>> ordersConfirmed = new HashMap<>(); // List of the orders and the agents that they are for
-//  private HashMap<Order, AID> ordersBestSupp = new HashMap<>(); // List of orders and their best suppliers to buy from
-  
-  private HashMap<ComputerComponent, Integer> componentsOrdered = new HashMap<>(); // The orders accepted by supplier so far, quantity
   private HashMap<ComputerComponent, Integer> warehouse = new HashMap<>(); // components available to build computers, quantity
-  private HashMap<ComputerComponent, Integer> componentsReserved = new HashMap<>(); // components reserved for orders accepted, quantity
-
-  private HashMap<AID, HashMap<ComputerComponent, Integer>> priceLists = new HashMap<>(); // suppliers pricelists
-  private HashMap<AID, Integer> suppDeliveryDays= new HashMap<>(); // suppliers speed
   
   private double dailyProfit = 0;
   private double totalProfit = 0;
@@ -115,25 +106,23 @@ public class ManufactAgent extends Agent {
     sd.setType("manufacturer");
     sd.setName(getLocalName() + "-manufacturer-agent");
     dfd.addServices(sd);
-    try{
+    
+    try {
       DFService.register(this, dfd);
-    }
-    catch(FIPAException e){
+    } catch(FIPAException e){
       e.printStackTrace();
     }
     
-    System.out.println("Created manufacturer");
     addBehaviour(new TickerWaiter(this));
   }
 
 
   @Override
   protected void takeDown() {
-    //Deregister from the yellow pages
-    try{
+    // Deregister from the yellow pages
+    try {
       DFService.deregister(this);
-    }
-    catch(FIPAException e){
+    } catch(FIPAException e){
       e.printStackTrace();
     }
   }
@@ -142,7 +131,7 @@ public class ManufactAgent extends Agent {
   public class TickerWaiter extends CyclicBehaviour {
     private static final long serialVersionUID = 1L;
 
-    //behaviour to wait for a new day
+    // behaviour to wait for a new day
     public TickerWaiter(Agent a) {
       super(a);
     }
@@ -152,43 +141,17 @@ public class ManufactAgent extends Agent {
       MessageTemplate mt = MessageTemplate.or(MessageTemplate.MatchContent("new day"),
           MessageTemplate.MatchContent("terminate"));
       ACLMessage msg = myAgent.receive(mt); 
+      
       if(msg != null) {
-        if(tickerAgent == null) {
-          tickerAgent = msg.getSender();
-        }
-        if(msg.getContent().equals("new day")) {
-          // TODO: ASK SIMON. HOW TO USE ABSTRACT CLASS FOR COMPUTER
-          // ASK ABOUT INHERITANCE AND OVERRIDING OF ATTRIBUTES LIKE LAPTOP SCREEN
-          
-          // I can use a for loop in a one shot behav to a request for all the components I need 
-          // Assume the agents will never fail, so always get a response
-          // have a look at the JADE response things that Simon said, so that ShipOrder or ShipComponent
-            // are predicates that respond to the actions. I can use an INFORM message that contains 
-            // those predicates
-          // TODO: for the report, specify that I started with a very simplistic approach and then
-          // I ran experiments to improve the model. eg. accept all orders at the beginning,
-          // then accept only the profitable ones, then try to reduce loss caused by the warehouse
-          // storage.
-          
-          // TODO: explain in the paper that we developed the app in a very simplistic way, not ideal
-          // for real world usage. This is because customers could make orders at any time during a day,
-          // we do not account for that because after customers are found we do not keep searching.
-          // Also, we do not account for failure. If one of the agents suddenly stopped functioning, the
-          // other agents, who depend on the responses of some other agents will be stuck in a loop.
-          // A proposed solution would be to use cyclic behaviours for every behaviour so that any
-          // of them could receive new input. 
-          // TODO: explain in the report that for making the app simple we ask the full list of components
-          // to the supplier, whereas in a real system we would query the price only for the components that
-          // we need to buy
-          
-          
-          priceLists.clear();
-          
+        if(tickerAgent == null) { tickerAgent = msg.getSender(); }
+        
+        if(msg.getContent().equals("new day")) {          
+          dailyProfit = 0;
           
           // Spawn a new sequential behaviour for the day's activities
           SequentialBehaviour dailyActivity = new SequentialBehaviour();
           
-          // Sub-behaviours will execute in the order they are added
+          // Sub-behaviours execute in the order they are added
           dailyActivity.addSubBehaviour(new FindCustomers(myAgent));
           dailyActivity.addSubBehaviour(new FindSuppliers(myAgent));
           dailyActivity.addSubBehaviour(new GetInfoFromSuppliers(myAgent));
@@ -202,7 +165,7 @@ public class ManufactAgent extends Agent {
           
           myAgent.addBehaviour(dailyActivity);
         } else {
-          //termination message to end simulation
+          // termination message to end simulation
           myAgent.doDelete();
         }
       } else {
@@ -225,18 +188,18 @@ public class ManufactAgent extends Agent {
       ServiceDescription sd = new ServiceDescription();
       sd.setType("customer");
       customerTemplate.addServices(sd);
-      try{
+      
+      try {
         customers.clear();
         DFAgentDescription[] agentsType  = DFService.search(myAgent, customerTemplate); 
+        
         for(int i=0; i<agentsType.length; i++){
-          customers.add(agentsType[i].getName()); // this is the AID
-//          System.out.println("found customer " + agentsType[i].getName());
+          customers.add(agentsType[i].getName());
         }
       }
       catch(FIPAException e) {
         e.printStackTrace();
       }
-
     }
   }
   
@@ -254,12 +217,13 @@ public class ManufactAgent extends Agent {
       ServiceDescription sd = new ServiceDescription();
       sd.setType("supplier");
       supplierTemplate.addServices(sd);
-      try{
+      
+      try {
         suppliers.clear();
-        DFAgentDescription[] agentsType = DFService.search(myAgent,supplierTemplate); 
+        DFAgentDescription[] agentsType = DFService.search(myAgent,supplierTemplate);
+        
         for(int i=0; i<agentsType.length; i++){
-          suppliers.add(agentsType[i].getName()); // this is the AID
-//          System.out.println("found supplier " + agentsType[i].getName());
+          suppliers.put(agentsType[i].getName(), new SupplierHelper());
         }
       }
       catch(FIPAException e) {
@@ -274,7 +238,7 @@ public class ManufactAgent extends Agent {
     private static final long serialVersionUID = 1L;
     
     MessageTemplate mt;
-    private ACLMessage msg; // TODO: might remove message from here and use one for each step
+    private ACLMessage msg;
     private int step = 0;
     private int supplierListReceived = 0;
 
@@ -286,7 +250,6 @@ public class ManufactAgent extends Agent {
     public void action() {
       switch (step) {  
       case 0:        
-        // Prepare the action request message
         ACLMessage enquiryMsg = new ACLMessage(ACLMessage.REQUEST);
         enquiryMsg.setLanguage(codec.getName());
         enquiryMsg.setOntology(ontology.getName()); 
@@ -299,12 +262,12 @@ public class ManufactAgent extends Agent {
         request.setAction(askSuppInfo);
         
         try {
-          for (AID supplier : suppliers) {
+          for (AID supplier : suppliers.keySet()) {
             enquiryMsg.addReceiver(supplier);
             request.setActor(supplier);
             getContentManager().fillContent(enquiryMsg, request);
             send(enquiryMsg);
-            enquiryMsg.removeReceiver(supplier); // Remove to not send to same supp multiple times
+            enquiryMsg.removeReceiver(supplier); // Remove to not send msg to same supp multiple times
           }
           step++;
          }
@@ -314,6 +277,7 @@ public class ManufactAgent extends Agent {
          catch (OntologyException oe) {
           oe.printStackTrace();
          } 
+        break;
 
         
       case 1:
@@ -326,31 +290,28 @@ public class ManufactAgent extends Agent {
         if(msg != null){
           try {
             ContentElement ce = null;
-            
-            // Print out the message content in SL
-            System.out.println("\nMessage received by manufacturer from supplier: " + msg.getContent()); 
-
             ce = getContentManager().extractContent(msg);
+            
             if (ce instanceof SendSuppInfo) {
               SendSuppInfo sendSuppInfo = (SendSuppInfo) ce;
               
-              // Could not be able to send HashMaps by message. I am transforming the hashmap
-              // and two lists, keys and values. The end result is the same. Reassemble at this end
+              // Cannot send HashMaps by message. De-composed in two lists, re-compose here
+              HashMap<ComputerComponent, Integer> priceList = new HashMap<>();
               ArrayList<ComputerComponent> compsKeys = sendSuppInfo.getComponentsForSaleKeys();
               ArrayList<Long> compsValues = sendSuppInfo.getComponentsForSaleVal();
-
-              // Info retrieved from message
-              AID supplier = sendSuppInfo.getSupplier();
-              int speed = sendSuppInfo.getSpeed();
-              HashMap<ComputerComponent, Integer> priceList = new HashMap<>();
+              
               for(int i=0; i<compsKeys.size(); i++) {
+                ComputerComponent comp = compsKeys.get(i); 
                 int price = compsValues.get(i).intValue();
-                priceList.put(compsKeys.get(i), price);
+                
+                priceList.put(comp, price);
               }
               
-              
-              priceLists.put(supplier, priceList); // Add to the known priceLists
-              suppDeliveryDays.put(supplier, speed); // Add supplier speed for later reference
+              // More info retrieved from message
+              AID supplier = sendSuppInfo.getSupplier();
+              int speed = sendSuppInfo.getSpeed();
+              suppliers.get(supplier).setPriceList(priceList);
+              suppliers.get(supplier).setDeliveryDays(speed);
               
               System.out.println("Received price list is: " + priceList);
               supplierListReceived++;
@@ -376,22 +337,22 @@ public class ManufactAgent extends Agent {
   
   
   // Thought process:
-  // 1 - Get price lists from all suppliers - DINE in previous function
+  // 1 - Get price lists from all suppliers - DONE in previous function
   // 2 - Listen for query-ifs from customers. Decide if accepting or not
   // 3 - Send reply back to customer
   // 4 - If the customer order is accepted, order the needed components from supplier 
+  
+  // This accepts/decline an order offer. Cycles until all cust responses are received
   private class OrderReplyBehaviour extends Behaviour{
     private static final long serialVersionUID = 1L;
     
     private OrderWrapper orderWpr;
     MessageTemplate mt;
-    private ACLMessage msg; // TODO: might remove message from here and use one for each step
+    private ACLMessage msg;
     private int step = 0;
     private int repliesSent = 0;
     private double profit;
-    
-    // This behaviour accepts or decline an order offer
-    // It cycles until responses from all customers have been received
+
     public OrderReplyBehaviour(Agent a) {
       super(a);
     }
@@ -401,7 +362,6 @@ public class ManufactAgent extends Agent {
       switch (step) {  
       case 0:
         // Receive order and calculate profit
-        // This behaviour should only respond to QUERY_IF messages
         mt = MessageTemplate.and(
             MessageTemplate.MatchPerformative(ACLMessage.QUERY_IF),
             MessageTemplate.MatchConversationId("customer-order"));
@@ -410,13 +370,8 @@ public class ManufactAgent extends Agent {
         if(msg != null){
           try {
             ContentElement ce = null;
-            
-            // Print out the message content in SL
-            System.out.println("\nMessage received by manufacturer from client" + msg.getContent()); 
-
-            // Let JADE convert from String to Java objects
-            // Output will be a ContentElement
             ce = getContentManager().extractContent(msg);
+            
             if (ce instanceof CanManufacture) {
               CanManufacture canManifacture = (CanManufacture) ce;
               Order tmpOrder = canManifacture.getOrder();
@@ -425,10 +380,7 @@ public class ManufactAgent extends Agent {
               
               Computer computer = (Computer) orderWpr.getOrder().getComputer();
               
-              // Extract the computer specs and print them
-              System.out.println("The computer ordered is " + computer.toString());
-              msg.setConversationId("customer-order");
-//              ArrayList<ComputerComponent> componentsNeeded = new ArrayList<>();
+//              msg.setConversationId("customer-order");
               
               Boolean allCompsAvailable = true;
               for (ComputerComponent comp : orderWpr.getOrder().getComputer().getComponentList()) {
@@ -464,19 +416,23 @@ public class ManufactAgent extends Agent {
               // Calculate how much it would cost to get all the needed components for each supplier
               // Keep in mind we might have components available already
             
+              
               // TODO: remove components already available from the total cost
               // AID, cost for all components for all computers
               HashMap <AID, Double> supplierCosts = new HashMap<>();
-              for (AID supplier : suppliers) { // for each supplier
+              
+              for (Entry<AID, SupplierHelper> supplier : suppliers.entrySet()) {
                 double totCost = 0;
-                for(ComputerComponent comp : orderWpr.getOrder().getComputer().getComponentList()) { // Loop for all the components needed
+                
+                // Loop for all the components needed
+                for(ComputerComponent comp : orderWpr.getOrder().getComputer().getComponentList()) {
                   if (comp != null) { // Some component, like the laptop screen, can be null
-                    totCost += priceLists.get(supplier).get(comp);
+                    totCost += supplier.getValue().getPriceList().get(comp);
                   }
                 }
                 
                 totCost *= orderWpr.getOrder().getQuantity();
-                supplierCosts.put(supplier, totCost);
+                supplierCosts.put(supplier.getKey(), totCost);
               }
               
               
@@ -489,7 +445,7 @@ public class ManufactAgent extends Agent {
               
               for (Entry<AID, Double> suppAndCost : supplierCosts.entrySet()) {
                 AID thisSupplier = suppAndCost.getKey();
-                int suppDelivDays = suppDeliveryDays.get(thisSupplier);
+                int suppDelivDays = suppliers.get(thisSupplier).getDeliveryDays();
                 
                 // Note: getting everything through the cheaper supplier is definitively
                 // more profitable!
@@ -515,11 +471,6 @@ public class ManufactAgent extends Agent {
               profit = orderWpr.getOrder().getPrice() - supplierCosts.get(bestSupplier);
               System.out.println("Profit for this order is: " + profit);
               dailyProfit += profit;
-              
-              // TODO: the PenaltyForLateOrders can be calculated at this stage as this
-              // wont change. Maybe not actually as we will be getting new components from
-              // the cheapest supplier on a daily basis
-              
               step++;              
             } else {
                 System.out.println("Unknown predicate " + ce.getClass().getName());
@@ -739,7 +690,8 @@ public class ManufactAgent extends Agent {
                getContentManager().fillContent(orderMsg, request); //send the wrapper object
                send(orderMsg);
                orderWpr.setOrderState(OrderWrapper.State.AWAITING_COMPS);
-               orderWpr.setExpectedCompsShipDate(day + suppDeliveryDays.get(supplier));
+               orderWpr.setExpectedCompsShipDate(day + 
+                   suppliers.get(supplier).getDeliveryDays());
 //               TODO IMPORTANT: WE ARE NOW AWAITING THE COMPONENTS. THIS FUNCTION SHOULD
 //               STOP HERE. RECEIVING THE COMPONENTS SHOULD HAPPENED IN THE ANOTHER ONESHOTBEHAV
 //               LOOP THROUGH THE ORDERS THAT HAVE AN EXPECTED SHIP DATE EQUAL TO TODAY
@@ -823,7 +775,7 @@ public class ManufactAgent extends Agent {
               // Extract the received component and print it
               System.out.println("Received " + quantity + " components: " + compList);
             } else {
-                System.out.println("Unknown predicate " + ce.getClass().getName());
+              System.out.println("Unknown predicate " + ce.getClass().getName());
             }
           }
           catch (CodecException ce) {
@@ -930,8 +882,8 @@ public class ManufactAgent extends Agent {
         dailyProfit -= loss;
       }
       
+      // Calc late delivery fee
       for (OrderWrapper orderWpr : orders) {
-        // Calc late delivery fee
         if (orderWpr.getExactDayDue() <= day) {
           dailyProfit -= 50;
         }
@@ -943,6 +895,7 @@ public class ManufactAgent extends Agent {
       // Add to the total profit
       totalProfit += dailyProfit;
       
+      
       System.out.println("\nToday's profit was: " + dailyProfit);
       System.out.println("Total profit is: " + totalProfit);
       
@@ -951,7 +904,7 @@ public class ManufactAgent extends Agent {
       ACLMessage doneMsg = new ACLMessage(ACLMessage.INFORM);
       doneMsg.setContent("done");
       doneMsg.addReceiver(tickerAgent);
-      for(AID supplier : suppliers) {
+      for(AID supplier : suppliers.keySet()) {
         doneMsg.addReceiver(supplier);
       }
       

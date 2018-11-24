@@ -1,0 +1,32 @@
+Notes for the report
+
+  // Note: for the report, specify that I started with a very simplistic approach and then
+  // I ran experiments to improve the model. eg. accept all orders at the beginning,
+  // then accept only the profitable ones, then try to reduce loss caused by the warehouse
+  // storage.
+  
+  // Note: explain in the paper that we developed the app in a very simplistic way, not ideal
+  // for real world usage. This is because customers could make orders at any time during a day,
+  // we do not account for that because after customers are found we do not keep searching.
+  // Also, we do not account for failure. If one of the agents suddenly stopped functioning, the
+  // other agents, who depend on the responses of some other agents will be stuck in a loop.
+  // A proposed solution would be to use cyclic behaviours for every behaviour so that any
+  // of them could receive new input. 
+  // Note: explain in the report that for making the app simple we ask the full list of components
+  // to the supplier, whereas in a real system we would query the price only for the components that
+  // we need to buy
+  
+// Could not be able to send HashMaps by message using the ontoogy. I needed to transform the hashmap
+// in two lists, keys and values. The end result is the same. Reassemble at this end
+
+Different stategies were attempted in order to maximise the profit. Each of them was repeated
+10 times. Their results were logged and the average is presented below:
+1 - the first strategy involved ordering the needed components from the cheapest supplier
+	that could send them within the due time set by the customers. This strategy did not
+	involve pre-ordering any components nor attempting late delivery. Just cheapest supplier
+	within the given timeframe. Average profit after 90 days: 1657194.0
+2 - Dont pre-order any component, but always buy from the cheapest supplier
+3 - every day, top up warehouse to have 1000 of each component (OSs were removed from the calculation
+	as they do not really take up space in the warehouse - to confirm)
+	
+	
