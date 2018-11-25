@@ -146,8 +146,6 @@ public class ManufactAgent extends Agent {
         if(tickerAgent == null) { tickerAgent = msg.getSender(); }
         
         if(msg.getContent().equals("new day")) {          
-          dailyProfit = 0;
-          
           // Spawn a new sequential behaviour for the day's activities
           SequentialBehaviour dailyActivity = new SequentialBehaviour();
           
@@ -313,7 +311,6 @@ public class ManufactAgent extends Agent {
               suppliers.get(supplier).setPriceList(priceList);
               suppliers.get(supplier).setDeliveryDays(speed);
               
-              System.out.println("Received price list is: " + priceList);
               supplierListReceived++;
             } else {
               System.out.println("Unknown predicate " + ce.getClass().getName());
@@ -337,7 +334,7 @@ public class ManufactAgent extends Agent {
   
   
   // Thought process:
-  // 1 - Get price lists from all suppliers - DONE in previous function
+  // 1 - Get price lists from all suppliers - done in previous function
   // 2 - Listen for query-ifs from customers. Decide if accepting or not
   // 3 - Send reply back to customer
   // 4 - If the customer order is accepted, order the needed components from supplier 
@@ -351,7 +348,7 @@ public class ManufactAgent extends Agent {
     private ACLMessage msg;
     private int step = 0;
     private int repliesSent = 0;
-    private double profit;
+    private double orderProfit;
 
     public OrderReplyBehaviour(Agent a) {
       super(a);
@@ -424,7 +421,7 @@ public class ManufactAgent extends Agent {
               for (Entry<AID, SupplierHelper> supplier : suppliers.entrySet()) {
                 double totCost = 0;
                 
-                // Loop for all the components needed
+                // Calc how much it would cost to fulfill the order for each supplier
                 for(ComputerComponent comp : orderWpr.getOrder().getComputer().getComponentList()) {
                   if (comp != null) { // Some component, like the laptop screen, can be null
                     totCost += supplier.getValue().getPriceList().get(comp);
@@ -439,7 +436,6 @@ public class ManufactAgent extends Agent {
               // Pick the supplier that sells the components at the cheapest price, with the constraint that it needs
               // to still deliver within the due days. ADVANCED: we can still accept order where the profit is still
               // positive even though we will be fined for late delivery
-              // TODO: recheck this. Look at the advanced note above
               int daysDue = orderWpr.getOrder().getDueInDays();
               AID bestSupplier = null;
               
@@ -450,27 +446,28 @@ public class ManufactAgent extends Agent {
                 // Note: getting everything through the cheaper supplier is definitively
                 // more profitable!
                 // test with cheaper supplier only
-//                if (suppDelivDays == 7) {
-//                  bestSupplier = thisSupplier;
-//                }
-                
-                if (bestSupplier == null && suppDelivDays <= daysDue) {
-                    // If there is no best supplier, get the first that can deliver within the time limit
-                  bestSupplier = thisSupplier;
-                } else if (suppDelivDays <= daysDue
-                    && suppAndCost.getValue() < supplierCosts.get(bestSupplier)) {
-                  // If can deliver within time constraint and cost is lower
+                if (suppDelivDays == 7) {
                   bestSupplier = thisSupplier;
                 }
+//                if (bestSupplier == null && suppDelivDays <= daysDue) {
+//                  // If there is no best supplier, get the first that can deliver within the time limit
+//                  bestSupplier = thisSupplier;
+//                } else if (suppDelivDays <= daysDue 
+//                    && suppAndCost.getValue() < supplierCosts.get(bestSupplier)) {
+//                  // If can deliver within time constraint and profit is positive
+//                  bestSupplier = thisSupplier;
+//                }
               }
               
               System.out.println("Speed required in days is: " + daysDue);
               System.out.println("The best supplier for this order is: " + bestSupplier);
               orderWpr.setSupplierAssigned(bestSupplier);
+              orderWpr.setTotalCost(supplierCosts.get(bestSupplier));
               
-              profit = orderWpr.getOrder().getPrice() - supplierCosts.get(bestSupplier);
-              System.out.println("Profit for this order is: " + profit);
-              dailyProfit += profit;
+              // make profit a boolean. The actual profit will be calculated in the
+              // endday function. Take into consideration the bestSupplier. If null,
+              // there is no profit
+              orderProfit = orderWpr.getOrder().getPrice() - supplierCosts.get(bestSupplier);
               step++;              
             } else {
                 System.out.println("Unknown predicate " + ce.getClass().getName());
@@ -508,23 +505,12 @@ public class ManufactAgent extends Agent {
         
         
           ACLMessage reply = msg.createReply();
-          if(profit > 0) { 
-            
+          if(orderProfit > 0) { 
             
             // Add to list of orders that we said yes to, but not yet confirmed
             orderWpr.setOrderState(OrderWrapper.State.APPROVED);
             orderWpr.setExactDayDue(orderWpr.getOrder().getDueInDays() + day);
-            orders.add(orderWpr);
-            
-//            if (ordersApproved.containsKey(msg.getSender())) {
-//              // If customer has already made an order, add to that list
-//              ordersApproved.get(msg.getSender()).add(order);
-//            } else {
-//              ArrayList<Order> orderList = new ArrayList<>();
-//              orderList.add(order);
-//              ordersApproved.put(msg.getSender(), orderList);
-//            }
-            
+            orders.add(orderWpr); 
             reply.setPerformative(ACLMessage.CONFIRM);
             
             System.out.println("\nSending response to the customer. We accept.");
@@ -558,7 +544,7 @@ public class ManufactAgent extends Agent {
     private AID supplier;
     private int step = 0;
     
-    // This behaviour accepts the requests for the order it has accepted in the previous query_if
+    // This behaviour accepts the requests for the orders approved in the previous query_if
     // This behaviour accepts the order requests we said yes to, if the customer still wants them
     public CollectOrderRequests(Agent a) {
       super(a);
@@ -577,10 +563,8 @@ public class ManufactAgent extends Agent {
         if(msg != null){
           try {
             ContentElement ce = null;
-            System.out.println("\nmessage received in CollectOrderRequests is: " + msg.getContent());
-
-            // Let JADE convert from String to Java objects
             ce = getContentManager().extractContent(msg);
+            
             if(ce instanceof Action) {
               Concept action = ((Action)ce).getAction();
               if (action instanceof MakeOrder) {
@@ -601,6 +585,8 @@ public class ManufactAgent extends Agent {
                 } else {
                   // If the order was not approved in the previous step, don't accept order request
                   System.out.println("\nThis order was not approved! Cannot process order!");
+                  step = 0;
+                  // TODO: if we reach here, the program stops. find out why
                 }
               }
             }
@@ -668,7 +654,6 @@ public class ManufactAgent extends Agent {
             // The supplier has the components in stock and confirmed
             System.out.println("\nThe supplier has the components in stock and confirmed! YAY! Now making request...");
             
-            // Prepare the action request message
             ACLMessage orderMsg = new ACLMessage(ACLMessage.REQUEST);
             orderMsg.setLanguage(codec.getName());
             orderMsg.setOntology(ontology.getName()); 
@@ -676,8 +661,6 @@ public class ManufactAgent extends Agent {
             orderMsg.addReceiver(supplier);
             
             try {            
-              
-              // Prepare the content. 
               BuyComponents buyComponents = new BuyComponents();
               buyComponents.setBuyer(myAgent.getAID());
               buyComponents.setComponents(orderWpr.getOrder().getComputer().getComponentList());
@@ -689,13 +672,17 @@ public class ManufactAgent extends Agent {
     
                getContentManager().fillContent(orderMsg, request); //send the wrapper object
                send(orderMsg);
-               orderWpr.setOrderState(OrderWrapper.State.AWAITING_COMPS);
+//               orderWpr.setOrderState(OrderWrapper.State.AWAITING_COMPS);
                orderWpr.setExpectedCompsShipDate(day + 
                    suppliers.get(supplier).getDeliveryDays());
 //               TODO IMPORTANT: WE ARE NOW AWAITING THE COMPONENTS. THIS FUNCTION SHOULD
 //               STOP HERE. RECEIVING THE COMPONENTS SHOULD HAPPENED IN THE ANOTHER ONESHOTBEHAV
 //               LOOP THROUGH THE ORDERS THAT HAVE AN EXPECTED SHIP DATE EQUAL TO TODAY
                step = 0;
+               // TODO: there should be an extra step that sends money to the supplier!!
+               // Payment is made to the supplier on the day that the order is placed.
+//             orderWpr.getTotalCost() holds how much we owe the supplier
+               dailyProfit -= orderWpr.getTotalCost();
                System.out.println("Sending order request to supplier. msg is: " + orderMsg);
             } catch (CodecException ce) {
              ce.printStackTrace();
@@ -757,11 +744,8 @@ public class ManufactAgent extends Agent {
         if(msg != null){
           try {
             ContentElement ce = null;
-            
-            // Print out the message content in SL
-            System.out.println("\nMessage received by manufacturer from supplier " + msg.getContent()); 
-  
             ce = getContentManager().extractContent(msg);
+            
             if (ce instanceof ShipComponents) {
               ShipComponents shipComponents = (ShipComponents) ce;
               ArrayList<ComputerComponent> compList = shipComponents.getComponents();
@@ -769,7 +753,11 @@ public class ManufactAgent extends Agent {
               
               // The components received get added to the warehouse
               for (ComputerComponent comp : compList) {
-                warehouse.put(comp, quantity);
+                if (warehouse.get(comp) == null) {
+                  warehouse.put(comp, quantity);
+                } else {
+                  warehouse.put(comp, warehouse.get(comp) + quantity);
+                }
               }
               
               // Extract the received component and print it
@@ -788,12 +776,12 @@ public class ManufactAgent extends Agent {
           block();
         }
       }
-      
     }
   }
   
   
-  // Note: can experiment with the strategy of sorting the orders by dueDate and ship to the ones
+  // TODO: receive customer payment it the behaviour below or another one after
+  // Note: can experiment with the strategy of sorting the orders by dueDate and ship the ones
   // that have a closer duedate, regardless of if the components were for these orders or not
   private class ManufactureAndSend extends OneShotBehaviour {
     private static final long serialVersionUID = 1L;
@@ -806,14 +794,13 @@ public class ManufactAgent extends Agent {
     public void action() {
       // for each order
       // If have enough components, manufacture components into an order and send to customer
-      // TODO: remove components from warehouse list when using them
       
       // sort orders by due date
       orders.sort((OrderWrapper o1, OrderWrapper o2)->
         o1.getOrder().getDueInDays()-o2.getOrder().getDueInDays()); 
       
       for (OrderWrapper orderWpr : orders) {
-//        if (order.getOrderState() != OrderWrapper.State.AWAITING_COMPS) continue;
+        if (orderWpr.getOrderState() != OrderWrapper.State.CONFIRMED) continue;
         
         // If comps are available
         Boolean allCompsAvailable = true;
@@ -841,7 +828,6 @@ public class ManufactAgent extends Agent {
         shipOrder.setOrder(orderWpr.getOrder());
         
         try {
-          // Fill content
           getContentManager().fillContent(msg, shipOrder);
           send(msg);
           orderWpr.setOrderState(OrderWrapper.State.COMPLETED);
@@ -859,7 +845,6 @@ public class ManufactAgent extends Agent {
          catch (OntologyException oe) {
           oe.printStackTrace();
          } 
-        
       }
     }
   }
@@ -874,6 +859,28 @@ public class ManufactAgent extends Agent {
 
     @Override
     public void action() {
+      // DAILY PROFIT IS OFTEN NEGATIVE. IT SHOULDNT, IT ONLY SHOULD DURING THE FIRST
+      // 7 DAYS AS WE ARE WAITING FOR THE ORDERS 
+      // TODO: MAYBE PROFIT IS NEGATIVE BECAUSE WHEN WE STOP THE SIMULATION WE ARE WAITING TO
+      // CASH IN ALL THE ORDERS THAT WE HAVE ACCEPTED FOR THE SUBSEQUENT 7 DAYS THAT 
+      // WE PAID FOR. One solution is to make the agent stop accepting orders 7 days
+      // from the end or calculating the money used for components only when an order is
+      // completed
+      for (OrderWrapper orderWpr : orders) {
+        // Note: the money paid to the supplier are subtracted where these orders are made 
+        // Add to daily profit all the orders completed/shipped today
+        if (orderWpr.getOrderState() == OrderWrapper.State.COMPLETED) {
+          dailyProfit += orderWpr.getOrder().getPrice(); 
+        }
+        
+        // Calc and subtract penalty for late delivery
+        if (orderWpr.getExactDayDue() < day) {
+          dailyProfit -= 50;
+        }
+      }
+      
+      // TODO: still need to subtract the components bought independently
+      
       // Storage fee
       for (ComputerComponent comp : warehouse.keySet()) {
         // OSs dont take up space in the warehouse
@@ -882,13 +889,6 @@ public class ManufactAgent extends Agent {
         dailyProfit -= loss;
       }
       
-      // Calc late delivery fee
-      for (OrderWrapper orderWpr : orders) {
-        if (orderWpr.getExactDayDue() <= day) {
-          dailyProfit -= 50;
-        }
-      }
-
       // Once calculation is done, remove the orders flagged as completed
       orders.removeIf(o -> o.getOrderState() == OrderWrapper.State.COMPLETED); 
       
@@ -910,53 +910,7 @@ public class ManufactAgent extends Agent {
       
       myAgent.send(doneMsg);
       day++;
+      dailyProfit = 0;
     }
   }
-  
-//  public class EndDayListener extends CyclicBehaviour {
-//    private static final long serialVersionUID = 1L;
-//    
-//    private int customerFinished = 0;
-////    private int supplierFinished = 0;
-//    private List<Behaviour> toRemove;
-//    
-//    public EndDayListener(Agent a, List<Behaviour> toRemove) {
-//      super(a);
-//      this.toRemove = toRemove;
-//    }
-//
-//    @Override
-//    public void action() {
-//      MessageTemplate mt = MessageTemplate.MatchContent("done");
-//      ACLMessage msg = myAgent.receive(mt);
-//      if(msg != null) {
-//        customerFinished++;
-//      } else {
-//        block();
-//      }
-//      
-//      if(customerFinished == customers.size()) {
-//        // We are finished when we have received a finish message from all customers
-//        // Inform the ticker agent that we are done 
-//        ACLMessage doneMsg = new ACLMessage(ACLMessage.INFORM);
-//        doneMsg.setContent("done");
-//        doneMsg.addReceiver(tickerAgent);
-//        myAgent.send(doneMsg);
-//        
-//        // Inform the suppliers that we are done
-//        ACLMessage supplierDone = new ACLMessage(ACLMessage.INFORM);
-//        supplierDone.setContent("done");
-//        for(AID supplier : suppliers) {
-//          supplierDone.addReceiver(supplier);
-//        }
-//        myAgent.send(supplierDone);
-//        
-//        // Remove cyclic behaviours
-//        for(Behaviour b : toRemove) {
-//          myAgent.removeBehaviour(b);
-//        }
-//        myAgent.removeBehaviour(this);
-//      }
-//    }
-//  }
 }
