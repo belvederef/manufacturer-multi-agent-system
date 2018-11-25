@@ -68,6 +68,7 @@ public class ManufactAgent extends Agent {
   
   private AID tickerAgent;
   private int day = 1;
+  private double lastSevenDayCosts=0;
   
   @Override
   protected void setup() {
@@ -221,7 +222,8 @@ public class ManufactAgent extends Agent {
         DFAgentDescription[] agentsType = DFService.search(myAgent,supplierTemplate);
         
         for(int i=0; i<agentsType.length; i++){
-          suppliers.put(agentsType[i].getName(), new SupplierHelper());
+          AID aid = agentsType[i].getName();
+          suppliers.put(aid, new SupplierHelper(aid));
         }
       }
       catch(FIPAException e) {
@@ -433,40 +435,53 @@ public class ManufactAgent extends Agent {
               }
               
               
-              // Pick the supplier that sells the components at the cheapest price, with the constraint that it needs
-              // to still deliver within the due days. ADVANCED: we can still accept order where the profit is still
-              // positive even though we will be fined for late delivery
-              int daysDue = orderWpr.getOrder().getDueInDays();
+              // Pick the supplier that will grant us the best profit
               AID bestSupplier = null;
+              double maxProfit = 0, expectedProfit = 0;
+              int lateDeliveryFee = 0, daysLate = 0;
               
-              for (Entry<AID, Double> suppAndCost : supplierCosts.entrySet()) {
-                AID thisSupplier = suppAndCost.getKey();
-                int suppDelivDays = suppliers.get(thisSupplier).getDeliveryDays();
+              for (SupplierHelper supplier : suppliers.values()) {
+                int suppDelivDays = supplier.getDeliveryDays();
                 
                 // Note: getting everything through the cheaper supplier is definitively
                 // more profitable!
                 // test with cheaper supplier only
                 if (suppDelivDays == 7) {
-                  bestSupplier = thisSupplier;
+                  bestSupplier = supplier.getAid();
                 }
-//                if (bestSupplier == null && suppDelivDays <= daysDue) {
-//                  // If there is no best supplier, get the first that can deliver within the time limit
-//                  bestSupplier = thisSupplier;
-//                } else if (suppDelivDays <= daysDue 
-//                    && suppAndCost.getValue() < supplierCosts.get(bestSupplier)) {
-//                  // If can deliver within time constraint and profit is positive
-//                  bestSupplier = thisSupplier;
-//                }
+                
+                // TODO: TODO:
+                // Here I can perform a calculation that takes into cosideration the 
+                // late delivery. It will always end up choosing the cheaper supplier
+//                double expectedProfit = suppAndCost.getValue()
+                
+                // Calc how many days after order due date the supplier will ship components 
+                daysLate = supplier.getDeliveryDays() - orderWpr.getOrder().getDueInDays();
+                if (daysLate > 0) {
+                  lateDeliveryFee = daysLate * 50;
+                } else {
+                  lateDeliveryFee = 0;
+                }
+                expectedProfit = orderWpr.getOrder().getPrice() 
+                    - supplierCosts.get(supplier.getAid())
+                    - lateDeliveryFee;
+                
+                if (bestSupplier == null && expectedProfit > 0) {
+                  // If there is no best supplier, get the first that grants profit
+                  bestSupplier = supplier.getAid();
+                  maxProfit = expectedProfit;
+                } else if (expectedProfit > maxProfit) {
+                  bestSupplier = supplier.getAid();
+                  maxProfit = expectedProfit;
+                }
               }
               
+              int daysDue = orderWpr.getOrder().getDueInDays();
               System.out.println("Speed required in days is: " + daysDue);
               System.out.println("The best supplier for this order is: " + bestSupplier);
               orderWpr.setSupplierAssigned(bestSupplier);
               orderWpr.setTotalCost(supplierCosts.get(bestSupplier));
               
-              // make profit a boolean. The actual profit will be calculated in the
-              // endday function. Take into consideration the bestSupplier. If null,
-              // there is no profit
               orderProfit = orderWpr.getOrder().getPrice() - supplierCosts.get(bestSupplier);
               step++;              
             } else {
@@ -490,26 +505,12 @@ public class ManufactAgent extends Agent {
 //        TotalValueOfOrdersShipped(d)  – PenaltyForLateOrders(d) –
 //        WarehouseStorage(d) – SuppliesPurchased(d),
         
-//        where TotalValueOfOrdersShipped(d)  is  the price of  all orders  shipped to  
-//        customers on  day d,  PenaltyForLateOrders(d) is  the penalty for any accepted  
-//        orders  where the due date  has passed  and they  have  not been  shipped as  of  the 
-//        end of  day d (Section  2.4), WarehouseStorage(d) is  the cost  of  all items currently 
-//        in  the warehouse that  did not arrive  on  day d (Section  2.3), and 
-//        SuppliesPurchased(d)  is  the cost  of  all components  purchased on  day d (Section  
-//        2.3).
-        
-//        For the initial evaluation  of  your  system  you may assume  that  the number  of  
-//        customers is 3 (c=3), the per-day late  delivery  penalty for an  order is  £50 
-//        (p=50), and the cost  of  warehouse storage per-day per-component is  £5  
-//        (w=5).
-        
-        
           ACLMessage reply = msg.createReply();
           if(orderProfit > 0) { 
             
             // Add to list of orders that we said yes to, but not yet confirmed
             orderWpr.setOrderState(OrderWrapper.State.APPROVED);
-            orderWpr.setExactDayDue(orderWpr.getOrder().getDueInDays() + day);
+            orderWpr.setOrderedDate(day);
             orders.add(orderWpr); 
             reply.setPerformative(ACLMessage.CONFIRM);
             
@@ -675,14 +676,20 @@ public class ManufactAgent extends Agent {
 //               orderWpr.setOrderState(OrderWrapper.State.AWAITING_COMPS);
                orderWpr.setExpectedCompsShipDate(day + 
                    suppliers.get(supplier).getDeliveryDays());
-//               TODO IMPORTANT: WE ARE NOW AWAITING THE COMPONENTS. THIS FUNCTION SHOULD
-//               STOP HERE. RECEIVING THE COMPONENTS SHOULD HAPPENED IN THE ANOTHER ONESHOTBEHAV
-//               LOOP THROUGH THE ORDERS THAT HAVE AN EXPECTED SHIP DATE EQUAL TO TODAY
                step = 0;
                // TODO: there should be an extra step that sends money to the supplier!!
                // Payment is made to the supplier on the day that the order is placed.
 //             orderWpr.getTotalCost() holds how much we owe the supplier
-               dailyProfit -= orderWpr.getTotalCost();
+//               dailyProfit -= orderWpr.getTotalCost();
+               dailyProfit -= orderWpr.getTotalCost(); 
+               
+               
+//             // calc last 7 days order costs
+             if (day >= 83) {
+               lastSevenDayCosts += orderWpr.getTotalCost();
+             }
+               
+                              
                System.out.println("Sending order request to supplier. msg is: " + orderMsg);
             } catch (CodecException ce) {
              ce.printStackTrace();
@@ -740,7 +747,6 @@ public class ManufactAgent extends Agent {
         if (orderWpr.getExpectedCompsShipDate() != day) continue;
       
         ACLMessage msg = receive(mt);
-        
         if(msg != null){
           try {
             ContentElement ce = null;
@@ -796,8 +802,8 @@ public class ManufactAgent extends Agent {
       // If have enough components, manufacture components into an order and send to customer
       
       // sort orders by due date
-      orders.sort((OrderWrapper o1, OrderWrapper o2)->
-        o1.getOrder().getDueInDays()-o2.getOrder().getDueInDays()); 
+//      orders.sort((OrderWrapper o1, OrderWrapper o2)->
+//        o1.getOrderedDate() - o2.getOrderedDate()); 
       
       for (OrderWrapper orderWpr : orders) {
         if (orderWpr.getOrderState() != OrderWrapper.State.CONFIRMED) continue;
@@ -873,6 +879,7 @@ public class ManufactAgent extends Agent {
           dailyProfit += orderWpr.getOrder().getPrice(); 
         }
         
+        
         // Calc and subtract penalty for late delivery
         if (orderWpr.getExactDayDue() < day) {
           dailyProfit -= 50;
@@ -898,7 +905,11 @@ public class ManufactAgent extends Agent {
       
       System.out.println("\nToday's profit was: " + dailyProfit);
       System.out.println("Total profit is: " + totalProfit);
+      System.out.println("lastSevenDayCosts: " + lastSevenDayCosts);
       
+      if (day == 90) {
+        System.out.println("");
+      }
       
       // Inform the ticker agent and the manufacturer that we are done 
       ACLMessage doneMsg = new ACLMessage(ACLMessage.INFORM);

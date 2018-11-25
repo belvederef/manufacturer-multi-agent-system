@@ -16,7 +16,7 @@ public class OrderWrapper {
   private State orderState;
   private HashMap <ComputerComponent, Integer> compsAssigned;
   private int expectedCompsShipDate;
-  private int exactDayDue; // The exact date that an order needs to be delivered by. Used to calc late delivery
+  private int orderedDate;
   private double totalCost;  
   
   public OrderWrapper(Order order) {
@@ -62,16 +62,22 @@ public class OrderWrapper {
   public void setExpectedCompsShipDate(int expectedCompsShipDate) {
     this.expectedCompsShipDate = expectedCompsShipDate;
   }
-  public int getExactDayDue() {
-    return exactDayDue;
-  }
-  public void setExactDayDue(int exactDayDue) {
-    this.exactDayDue = exactDayDue;
-  }
   public double getTotalCost() {
     return totalCost;
   }
   public void setTotalCost(double totalCost) {
     this.totalCost = totalCost;
+  }
+  public int getOrderedDate() {
+    return orderedDate;
+  }
+  public void setOrderedDate(int orderedDate) {
+    this.orderedDate = orderedDate;
+  }
+  
+  
+  // The exact date that an order needs to be delivered by. Used to calc late delivery
+  public int getExactDayDue() {
+    return this.order.getDueInDays() + orderedDate;
   }
 }

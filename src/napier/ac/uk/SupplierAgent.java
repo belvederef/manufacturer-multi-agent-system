@@ -381,7 +381,6 @@ public abstract class SupplierAgent extends Agent {
       }
       
       if (buyersFinished == buyers.size()) {
-        System.out.println("SUPPLIER " + myAgent.getName() + " IS DONE");
 
         // Inform the ticker that we are done
         ACLMessage tick = new ACLMessage(ACLMessage.INFORM);

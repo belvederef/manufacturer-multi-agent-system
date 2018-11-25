@@ -29,4 +29,8 @@ Different stategies were attempted in order to maximise the profit. Each of them
 3 - every day, top up warehouse to have 1000 of each component (OSs were removed from the calculation
 	as they do not really take up space in the warehouse - to confirm)
 	
+The stategy used involves maximising the profit. In a real application this wouldnt be
+feasible due to reputation involvement. The business would receive bad reviews from the buyers
+which will then decrease in number. This was however out of the scope for this project.
+	
 	

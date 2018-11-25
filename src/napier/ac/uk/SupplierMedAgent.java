@@ -15,11 +15,7 @@ import napier.ac.uk_ontology.concepts.ComputerComponent;
 
 public class SupplierMedAgent extends SupplierAgent {
   private static final long serialVersionUID = 1L;
-  
-  private HashMap<ComputerComponent, Integer> componentsForSale; // component, price
-  private String name; // The name can be 'slow', 'medium' or 'fast', also showing how long it takes to deliver
-  private int deliveryDays; // number of days for delivery
-  
+    
   @Override
   protected void setup() {
     super.componentsForSale = new HashMap<ComputerComponent, Integer>(); // pass list of components and prices
@@ -36,7 +32,6 @@ public class SupplierMedAgent extends SupplierAgent {
     super.componentsForSale.put(new OsLinux(), 0);
     
     super.suppDeliveryDays = 3;
-    name = "slow"; // pass name/speed
     System.out.println("Created medium supplier");
     
     register();
