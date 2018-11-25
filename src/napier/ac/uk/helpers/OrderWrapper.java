@@ -45,7 +45,7 @@ public class OrderWrapper {
   
   // Approved and confirmed are set by manufac 
   public enum State{
-    APPROVED, CONFIRMED, DISMISSED, AWAITING_COMPS, COMPLETED
+    APPROVED, CONFIRMED, DISMISSED, COMPLETED
   }
   public State getOrderState() {
     return orderState;

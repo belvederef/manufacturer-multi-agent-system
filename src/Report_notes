@@ -32,5 +32,18 @@ Different stategies were attempted in order to maximise the profit. Each of them
 The stategy used involves maximising the profit. In a real application this wouldnt be
 feasible due to reputation involvement. The business would receive bad reviews from the buyers
 which will then decrease in number. This was however out of the scope for this project.
+
+Note: the last seven days we still make orders for the components but we
+do not cash in the orders these are for.
+
+// When we request to buy components, we buy them all together (all the ones needed for
+// an order). 
+// in a real system, if the supplier only owned a set quantity of components, we would
+// buy that quantity and buy the remaining from the second best supplier, perhaps.
+// This was out of the scope for this simple model.
+          // Note: something that could be done in a real system is, if supplier doesnt have 
+          // the components that we require, buy from the second best only the ones that 
+          // the best cant give us 
+ 
 	
 	

@@ -156,8 +156,6 @@ public class ManufactAgent extends Agent {
           dailyActivity.addSubBehaviour(new GetInfoFromSuppliers(myAgent));
           dailyActivity.addSubBehaviour(new OrderReplyBehaviour(myAgent));
           dailyActivity.addSubBehaviour(new CollectOrderRequests(myAgent));
-//          dailyActivity.addSubBehaviour(new AskIfCanBuy(myAgent));
-//          dailyActivity.addSubBehaviour(new BuyComponentAction(myAgent));
           dailyActivity.addSubBehaviour(new ReceiveComponents(myAgent));
           dailyActivity.addSubBehaviour(new ManufactureAndSend(myAgent));
           dailyActivity.addSubBehaviour(new EndDay(myAgent));
@@ -377,10 +375,6 @@ public class ManufactAgent extends Agent {
               orderWpr = new OrderWrapper(tmpOrder);
               orderWpr.setCustomer(msg.getSender());
               
-              Computer computer = (Computer) orderWpr.getOrder().getComputer();
-              
-//              msg.setConversationId("customer-order");
-              
               Boolean allCompsAvailable = true;
               for (ComputerComponent comp : orderWpr.getOrder().getComputer().getComponentList()) {
                 // If there are not enough components in the warehouse, flag as false
@@ -391,39 +385,19 @@ public class ManufactAgent extends Agent {
                   break;
                 }
               }
-              
-              // Calculate profit
-//              if(!allCompsAvailable) {
-                // Query the supplier for the needed components and then calcute profit
-//                step = 1;
-//              } else {
-              
-             // If all components are available, calculate profit. If positive, accept
-            // If I already have components available it is because I bought them from the
-            // cheap supplier, knowing that I would have needed them
-                
-            // Profit in this case is the price the customer pays minus what I paid for the
-            // components of the cheap supplier
-            // so as long as the price that the customer pays us is higher than the price we
-            // paid for the components, there is profit
-                
-            // minus what paid for comps can happen at the end of the day, so dont mind that for this 
-            // simple model. Can point that out in the report. 
+              // Can add something like: if all comps are available, proceed to ship
                 
               
               
-              // Calculate how much it would cost to get all the needed components for each supplier
-              // Keep in mind we might have components available already
+              //TODO: Keep in mind we might have components available already
             
               
-              // TODO: remove components already available from the total cost
-              // AID, cost for all components for all computers
+              // Calc how much it would cost to fulfill the order for each supplier
               HashMap <AID, Double> supplierCosts = new HashMap<>();
               
               for (Entry<AID, SupplierHelper> supplier : suppliers.entrySet()) {
                 double totCost = 0;
                 
-                // Calc how much it would cost to fulfill the order for each supplier
                 for(ComputerComponent comp : orderWpr.getOrder().getComputer().getComponentList()) {
                   if (comp != null) { // Some component, like the laptop screen, can be null
                     totCost += supplier.getValue().getPriceList().get(comp);
@@ -441,20 +415,6 @@ public class ManufactAgent extends Agent {
               int lateDeliveryFee = 0, daysLate = 0;
               
               for (SupplierHelper supplier : suppliers.values()) {
-                int suppDelivDays = supplier.getDeliveryDays();
-                
-                // Note: getting everything through the cheaper supplier is definitively
-                // more profitable!
-                // test with cheaper supplier only
-                if (suppDelivDays == 7) {
-                  bestSupplier = supplier.getAid();
-                }
-                
-                // TODO: TODO:
-                // Here I can perform a calculation that takes into cosideration the 
-                // late delivery. It will always end up choosing the cheaper supplier
-//                double expectedProfit = suppAndCost.getValue()
-                
                 // Calc how many days after order due date the supplier will ship components 
                 daysLate = supplier.getDeliveryDays() - orderWpr.getOrder().getDueInDays();
                 if (daysLate > 0) {
@@ -467,7 +427,7 @@ public class ManufactAgent extends Agent {
                     - lateDeliveryFee;
                 
                 if (bestSupplier == null && expectedProfit > 0) {
-                  // If there is no best supplier, get the first that grants profit
+                  // If there is no best supplier, get the first that grants some profit
                   bestSupplier = supplier.getAid();
                   maxProfit = expectedProfit;
                 } else if (expectedProfit > maxProfit) {
@@ -485,7 +445,7 @@ public class ManufactAgent extends Agent {
               orderProfit = orderWpr.getOrder().getPrice() - supplierCosts.get(bestSupplier);
               step++;              
             } else {
-                System.out.println("Unknown predicate " + ce.getClass().getName());
+              System.out.println("Unknown predicate " + ce.getClass().getName());
             }
           }
           catch (CodecException ce) {
@@ -501,10 +461,6 @@ public class ManufactAgent extends Agent {
         
         
       case 1:
-        // Profit on a single day 
-//        TotalValueOfOrdersShipped(d)  – PenaltyForLateOrders(d) –
-//        WarehouseStorage(d) – SuppliesPurchased(d),
-        
           ACLMessage reply = msg.createReply();
           if(orderProfit > 0) { 
             
@@ -546,7 +502,6 @@ public class ManufactAgent extends Agent {
     private int step = 0;
     
     // This behaviour accepts the requests for the orders approved in the previous query_if
-    // This behaviour accepts the order requests we said yes to, if the customer still wants them
     public CollectOrderRequests(Agent a) {
       super(a);
     }
@@ -619,9 +574,6 @@ public class ManufactAgent extends Agent {
         ownsComps.setQuantity(orderWpr.getOrder().getQuantity());
         
         try {
-          // Note: something that could be done in a real system is, if supplier doesnt have 
-          // the components that we require, buy from the second best only the ones that 
-          // the best cant give us 
           ownsComps.setComponents(orderWpr.getOrder().getComputer().getComponentList());                            
           getContentManager().fillContent(queryMsg, ownsComps);
           send(queryMsg);
@@ -638,19 +590,12 @@ public class ManufactAgent extends Agent {
         
       case 2:
         // Send order message to supplier if they have the components in stock
-        // TODO: send money when you request to buy a component
-        // Note: here we request the to buy the components. 
-        // in a real system, if the supplier only owned a set quantity of components, we would
-        // buy that quantity and buy the remaining from a more expensive supplier, perhaps.
-        // This was out of the scope for this simple model.
         MessageTemplate cmt = MessageTemplate.and(
             MessageTemplate.MatchPerformative(ACLMessage.CONFIRM),
             MessageTemplate.MatchConversationId("component-selling"));
         
         ACLMessage confMsg = myAgent.receive(cmt);
-        System.out.println("\nmessage received in BuyComponentAction is: " + confMsg);
         if(confMsg != null) {
-//          replyReceived = true;
           if(confMsg.getPerformative() == ACLMessage.CONFIRM) {
             // The supplier has the components in stock and confirmed
             System.out.println("\nThe supplier has the components in stock and confirmed! YAY! Now making request...");
@@ -671,24 +616,21 @@ public class ManufactAgent extends Agent {
               request.setAction(buyComponents);
               request.setActor(confMsg.getSender());
     
-               getContentManager().fillContent(orderMsg, request); //send the wrapper object
+               getContentManager().fillContent(orderMsg, request);
                send(orderMsg);
-//               orderWpr.setOrderState(OrderWrapper.State.AWAITING_COMPS);
                orderWpr.setExpectedCompsShipDate(day + 
                    suppliers.get(supplier).getDeliveryDays());
-               step = 0;
+
                // TODO: there should be an extra step that sends money to the supplier!!
+               // Subtract (probably in the next step) what we paid for the components
                // Payment is made to the supplier on the day that the order is placed.
-//             orderWpr.getTotalCost() holds how much we owe the supplier
-//               dailyProfit -= orderWpr.getTotalCost();
                dailyProfit -= orderWpr.getTotalCost(); 
                
                
-//             // calc last 7 days order costs
-             if (day >= 83) {
-               lastSevenDayCosts += orderWpr.getTotalCost();
-             }
-               
+               // calc last 7 days order costs
+               if (day >= 83) {
+                 lastSevenDayCosts += orderWpr.getTotalCost();
+               }
                               
                System.out.println("Sending order request to supplier. msg is: " + orderMsg);
             } catch (CodecException ce) {
@@ -700,6 +642,7 @@ public class ManufactAgent extends Agent {
             System.out.println("\nThe supplier does not have the components in stock!");
             orderWpr.setOrderState(OrderWrapper.State.DISMISSED);
           }
+          step = 0;
         } else {
           block();
         }
@@ -798,20 +741,16 @@ public class ManufactAgent extends Agent {
 
     @Override
     public void action() {
-      // for each order
-      // If have enough components, manufacture components into an order and send to customer
-      
-      // sort orders by due date
+//      sort orders by due date
 //      orders.sort((OrderWrapper o1, OrderWrapper o2)->
 //        o1.getOrderedDate() - o2.getOrderedDate()); 
       
+      // For each order, if there are enough components, manufacture and send to customer
       for (OrderWrapper orderWpr : orders) {
         if (orderWpr.getOrderState() != OrderWrapper.State.CONFIRMED) continue;
         
-        // If comps are available
         Boolean allCompsAvailable = true;
         for (ComputerComponent comp : orderWpr.getOrder().getComputer().getComponentList()) {
-          // If there are not enough components in the warehouse, flag as false
           // Dont mind linux. It doesnt need a licence
           if(!warehouse.containsKey(comp) || 
               (warehouse.containsKey(comp) && comp.getClass() != OsLinux.class &&
@@ -844,11 +783,9 @@ public class ManufactAgent extends Agent {
           }
 
           System.out.println("Sending order " + orderWpr + " to cust " + orderWpr.getCustomer());
-         }
-         catch (CodecException ce) {
+         } catch (CodecException ce) {
           ce.printStackTrace();
-         }
-         catch (OntologyException oe) {
+         } catch (OntologyException oe) {
           oe.printStackTrace();
          } 
       }
@@ -856,6 +793,9 @@ public class ManufactAgent extends Agent {
   }
   
   
+  // Profit on a single day 
+  // TotalValueOfOrdersShipped(d)  – PenaltyForLateOrders(d) –
+  // WarehouseStorage(d) – SuppliesPurchased(d),
   public class EndDay extends OneShotBehaviour {
     private static final long serialVersionUID = 1L;
     
@@ -865,20 +805,12 @@ public class ManufactAgent extends Agent {
 
     @Override
     public void action() {
-      // DAILY PROFIT IS OFTEN NEGATIVE. IT SHOULDNT, IT ONLY SHOULD DURING THE FIRST
-      // 7 DAYS AS WE ARE WAITING FOR THE ORDERS 
-      // TODO: MAYBE PROFIT IS NEGATIVE BECAUSE WHEN WE STOP THE SIMULATION WE ARE WAITING TO
-      // CASH IN ALL THE ORDERS THAT WE HAVE ACCEPTED FOR THE SUBSEQUENT 7 DAYS THAT 
-      // WE PAID FOR. One solution is to make the agent stop accepting orders 7 days
-      // from the end or calculating the money used for components only when an order is
-      // completed
       for (OrderWrapper orderWpr : orders) {
         // Note: the money paid to the supplier are subtracted where these orders are made 
         // Add to daily profit all the orders completed/shipped today
         if (orderWpr.getOrderState() == OrderWrapper.State.COMPLETED) {
           dailyProfit += orderWpr.getOrder().getPrice(); 
         }
-        
         
         // Calc and subtract penalty for late delivery
         if (orderWpr.getExactDayDue() < day) {
