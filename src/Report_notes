@@ -41,9 +41,30 @@ do not cash in the orders these are for.
 // in a real system, if the supplier only owned a set quantity of components, we would
 // buy that quantity and buy the remaining from the second best supplier, perhaps.
 // This was out of the scope for this simple model.
-          // Note: something that could be done in a real system is, if supplier doesnt have 
-          // the components that we require, buy from the second best only the ones that 
-          // the best cant give us 
+  // Note: something that could be done in a real system is, if supplier doesnt have 
+  // the components that we require, buy from the second best only the ones that 
+  // the best cant give us 
+  
+  Receive orders in the customer was made cyclic so we dont need to know the number of orders we are expecting for each day
+  // as they could be delayed anyway
  
+The supplier agents sync on the day count thanks to the manufacturer: the manuf sends a message
+to the supplier saying that it has finished its day. The supplier waits for the manuf
+before ending its day
+
+The customer uses a cyclic behaviour to receive orders, this is because we cant loop until
+all orders we were expecting today have arrived: the manuf could have chosen to delay the delivery,
+making us loop forever as we'll not get the expected order on this day
+
+Created computerComponent as concept so we can talk about any component in a generalised way
+
+The system could be improved with the introduction of IDs for each order (customer orders and
+manufacturer orders). Right now, the payment is blindly received and there is no track
+of what order the payment is for.
+
+
+For the report calculate the standard error for the manufacturer profit at the end of the 90 days.
+Also, have a look at standard deviation. To calculate this the whole process could be run 30 
+times and the results could be logged.
 	
 	

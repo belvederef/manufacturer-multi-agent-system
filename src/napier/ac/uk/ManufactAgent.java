@@ -46,6 +46,7 @@ import napier.ac.uk_ontology.concepts.ComputerComponent;
 import napier.ac.uk_ontology.concepts.Order;
 import napier.ac.uk_ontology.predicates.CanManufacture;
 import napier.ac.uk_ontology.predicates.OwnsComponents;
+import napier.ac.uk_ontology.predicates.SendPayment;
 import napier.ac.uk_ontology.predicates.SendSuppInfo;
 import napier.ac.uk_ontology.predicates.ShipComponents;
 import napier.ac.uk_ontology.predicates.ShipOrder;
@@ -158,6 +159,7 @@ public class ManufactAgent extends Agent {
           dailyActivity.addSubBehaviour(new CollectOrderRequests(myAgent));
           dailyActivity.addSubBehaviour(new ReceiveComponents(myAgent));
           dailyActivity.addSubBehaviour(new ManufactureAndSend(myAgent));
+          dailyActivity.addSubBehaviour(new ReceivePayment(myAgent));
           dailyActivity.addSubBehaviour(new EndDay(myAgent));
           
           myAgent.addBehaviour(dailyActivity);
@@ -234,7 +236,6 @@ public class ManufactAgent extends Agent {
   // Get price lists from all suppliers
   public class GetInfoFromSuppliers extends Behaviour {
     private static final long serialVersionUID = 1L;
-    
     MessageTemplate mt;
     private ACLMessage msg;
     private int step = 0;
@@ -342,7 +343,6 @@ public class ManufactAgent extends Agent {
   // This accepts/decline an order offer. Cycles until all cust responses are received
   private class OrderReplyBehaviour extends Behaviour{
     private static final long serialVersionUID = 1L;
-    
     private OrderWrapper orderWpr;
     MessageTemplate mt;
     private ACLMessage msg;
@@ -375,22 +375,19 @@ public class ManufactAgent extends Agent {
               orderWpr = new OrderWrapper(tmpOrder);
               orderWpr.setCustomer(msg.getSender());
               
-              Boolean allCompsAvailable = true;
-              for (ComputerComponent comp : orderWpr.getOrder().getComputer().getComponentList()) {
-                // If there are not enough components in the warehouse, flag as false
-                if(!warehouse.containsKey(comp) || 
-                    (warehouse.containsKey(comp) && 
-                     warehouse.get(comp) < orderWpr.getOrder().getQuantity())) {
-                  allCompsAvailable = false;
-                  break;
-                }
-              }
+              // Note: not needed. We will never have extra components in the warehouse
+//              Boolean allCompsAvailable = true;
+//              for (ComputerComponent comp : orderWpr.getOrder().getComputer().getComponentList()) {
+//                // If there are not enough components in the warehouse, flag as false
+//                if(!warehouse.containsKey(comp) || 
+//                    (warehouse.containsKey(comp) && 
+//                     warehouse.get(comp) < orderWpr.getOrder().getQuantity())) {
+//                  allCompsAvailable = false;
+//                  break;
+//                }
+//              }
               // Can add something like: if all comps are available, proceed to ship
                 
-              
-              
-              //TODO: Keep in mind we might have components available already
-            
               
               // Calc how much it would cost to fulfill the order for each supplier
               HashMap <AID, Double> supplierCosts = new HashMap<>();
@@ -496,7 +493,6 @@ public class ManufactAgent extends Agent {
   
   private class CollectOrderRequests extends Behaviour{
     private static final long serialVersionUID = 1L;
-    
     private OrderWrapper orderWpr;
     private AID supplier;
     private int step = 0;
@@ -508,7 +504,6 @@ public class ManufactAgent extends Agent {
     
     @Override
     public void action() {
-      
       switch(step) {
       case 0:
         MessageTemplate mt = MessageTemplate.and(
@@ -619,13 +614,7 @@ public class ManufactAgent extends Agent {
                getContentManager().fillContent(orderMsg, request);
                send(orderMsg);
                orderWpr.setExpectedCompsShipDate(day + 
-                   suppliers.get(supplier).getDeliveryDays());
-
-               // TODO: there should be an extra step that sends money to the supplier!!
-               // Subtract (probably in the next step) what we paid for the components
-               // Payment is made to the supplier on the day that the order is placed.
-               dailyProfit -= orderWpr.getTotalCost(); 
-               
+                   suppliers.get(supplier).getDeliveryDays());               
                
                // calc last 7 days order costs
                if (day >= 83) {
@@ -633,6 +622,7 @@ public class ManufactAgent extends Agent {
                }
                               
                System.out.println("Sending order request to supplier. msg is: " + orderMsg);
+               step++;
             } catch (CodecException ce) {
              ce.printStackTrace();
             } catch (OntologyException oe) {
@@ -641,13 +631,37 @@ public class ManufactAgent extends Agent {
           } else if(confMsg.getPerformative() == ACLMessage.REFUSE) {
             System.out.println("\nThe supplier does not have the components in stock!");
             orderWpr.setOrderState(OrderWrapper.State.DISMISSED);
+            step = 0;
           }
-          step = 0;
         } else {
           block();
         }
         break;
+      case 3:
+        // Send payment for purchased component
+        ACLMessage payMsg = new ACLMessage(ACLMessage.INFORM);
+        payMsg.setLanguage(codec.getName());
+        payMsg.setOntology(ontology.getName()); 
+        payMsg.setConversationId("payment");
+        payMsg.addReceiver(supplier);
         
+        SendPayment sendPayment = new SendPayment();
+        sendPayment.setBuyer(myAgent.getAID());
+        sendPayment.setMoney(orderWpr.getTotalCost());
+        
+        try {
+          getContentManager().fillContent(payMsg, sendPayment);
+          send(payMsg);
+          // Subtract to profit what we paid for the components
+          dailyProfit -= orderWpr.getTotalCost();
+          step = 0;
+          System.out.println("\nmanuf sending " + orderWpr.getTotalCost() + " to supp");
+        } catch (CodecException ce) {
+          ce.printStackTrace();
+        } catch (OntologyException oe) {
+          oe.printStackTrace();
+        }   
+      break;
       }
     }
 
@@ -669,12 +683,16 @@ public class ManufactAgent extends Agent {
   
   
   // Receive the components that we are awaiting from the supplier
-  public class ReceiveComponents extends OneShotBehaviour {
-    // TODO: probably add here the logic that asks to get the single components to fill the warehouse 
+  public class ReceiveComponents extends Behaviour { 
     private static final long serialVersionUID = 1L;
+    private int orderCompsExpected = 0;
+    private int orderCompsReceived = 0;
     
     public ReceiveComponents(Agent a) {
       super(a);
+      orderCompsExpected = (int) orders.stream()
+          .filter(o -> o.getExpectedCompsShipDate() == day)
+          .count();
     }
     
     // TODO: keep a list of components ordered with the AID of the supplier that has to send them to us.
@@ -711,6 +729,7 @@ public class ManufactAgent extends Agent {
               
               // Extract the received component and print it
               System.out.println("Received " + quantity + " components: " + compList);
+              orderCompsReceived++;
             } else {
               System.out.println("Unknown predicate " + ce.getClass().getName());
             }
@@ -725,6 +744,11 @@ public class ManufactAgent extends Agent {
           block();
         }
       }
+    }
+    
+    @Override
+    public boolean done() {
+      return orderCompsExpected == orderCompsReceived;
     }
   }
   
@@ -769,7 +793,7 @@ public class ManufactAgent extends Agent {
         msg.addReceiver(orderWpr.getCustomer());
         
         ShipOrder shipOrder = new ShipOrder();
-        shipOrder.setBuyer(orderWpr.getCustomer());
+        shipOrder.setSender(myAgent.getAID());
         shipOrder.setOrder(orderWpr.getOrder());
         
         try {
@@ -793,6 +817,60 @@ public class ManufactAgent extends Agent {
   }
   
   
+  
+  public class ReceivePayment extends Behaviour {
+    private static final long serialVersionUID = 1L;
+    private int numPaymentsLeft = 0;
+    private int paid = 0;
+    
+    public ReceivePayment(Agent a) {
+      super(a);
+    }
+    
+    @Override
+    public void action() {
+      MessageTemplate mt = MessageTemplate.and(
+          MessageTemplate.MatchPerformative(ACLMessage.INFORM),
+          MessageTemplate.MatchConversationId("payment"));
+      ACLMessage msg = receive(mt);
+      
+      numPaymentsLeft = (int) orders.stream()
+          .filter(o -> o.getOrderState() == OrderWrapper.State.COMPLETED)
+          .count() - paid;
+      // THE COMPLETED ORDER ADDED THE FOLLOWING DAY NEVER GET THIS WORK
+      
+      if(msg != null){
+        try {
+          ContentElement ce = null;
+          ce = getContentManager().extractContent(msg);
+          
+          if (ce instanceof SendPayment) {
+            SendPayment sendPayment = (SendPayment) ce;
+            // Add to daily profit
+            dailyProfit += sendPayment.getMoney();
+            System.out.println("\nmanuf got " + sendPayment.getMoney() + " from cust " + sendPayment.getBuyer());
+            // TODO: could change the order state to paid
+            paid++;
+          } else {
+            System.out.println("Unknown predicate " + ce.getClass().getName());
+          }
+        } catch (CodecException ce) {
+          ce.printStackTrace();
+        } catch (OntologyException oe) {
+          oe.printStackTrace();
+        }
+      } else if (numPaymentsLeft > 0){
+        block();
+      }
+    }
+    
+    @Override
+    public boolean done() {
+      // Loop until there are no payments left to be received
+      return numPaymentsLeft == 0;
+    }
+  }
+  
   // Profit on a single day 
   // TotalValueOfOrdersShipped(d)  – PenaltyForLateOrders(d) –
   // WarehouseStorage(d) – SuppliesPurchased(d),
@@ -808,17 +886,15 @@ public class ManufactAgent extends Agent {
       for (OrderWrapper orderWpr : orders) {
         // Note: the money paid to the supplier are subtracted where these orders are made 
         // Add to daily profit all the orders completed/shipped today
-        if (orderWpr.getOrderState() == OrderWrapper.State.COMPLETED) {
-          dailyProfit += orderWpr.getOrder().getPrice(); 
-        }
+//        if (orderWpr.getOrderState() == OrderWrapper.State.COMPLETED) {
+//          dailyProfit += orderWpr.getOrder().getPrice(); 
+//        }
         
         // Calc and subtract penalty for late delivery
         if (orderWpr.getExactDayDue() < day) {
           dailyProfit -= 50;
         }
       }
-      
-      // TODO: still need to subtract the components bought independently
       
       // Storage fee
       for (ComputerComponent comp : warehouse.keySet()) {
@@ -854,6 +930,9 @@ public class ManufactAgent extends Agent {
       myAgent.send(doneMsg);
       day++;
       dailyProfit = 0;
+//      myAgent.removeBehaviour(this);
+      // TODO: check if necessary to remove behaviours at the end for this agent 
+      // and the customers
     }
   }
 }

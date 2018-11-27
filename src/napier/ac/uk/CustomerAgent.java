@@ -1,6 +1,7 @@
 package napier.ac.uk;
 
 import java.util.ArrayList;
+import java.util.List;
 import java.util.Random;
 
 import jade.content.ContentElement;
@@ -34,6 +35,7 @@ import napier.ac.uk_ontology.concepts.Desktop;
 import napier.ac.uk_ontology.concepts.Laptop;
 import napier.ac.uk_ontology.concepts.Order;
 import napier.ac.uk_ontology.predicates.CanManufacture;
+import napier.ac.uk_ontology.predicates.SendPayment;
 import napier.ac.uk_ontology.predicates.ShipOrder;
 
 
@@ -109,13 +111,17 @@ public class CustomerAgent extends Agent {
           dailyActivity.addSubBehaviour(new FindManufacturers(myAgent));
           dailyActivity.addSubBehaviour(new AskIfCanManufacture(myAgent));
           dailyActivity.addSubBehaviour(new MakeOrderAction(myAgent));
-//          dailyActivity.addSubBehaviour(new ReceiveOrder(myAgent));
-          dailyActivity.addSubBehaviour(new EndDay(myAgent));
+          
+          ArrayList<Behaviour> cyclicBehaviours = new ArrayList<>();
+          CyclicBehaviour ro = new ReceiveOrder(myAgent);
+          cyclicBehaviours.add(ro);
+          myAgent.addBehaviour(ro);
+          
+          dailyActivity.addSubBehaviour(new EndDay(myAgent, cyclicBehaviours));
           
           // Made cyclic so we dont need to know the number of orders we are expecting for each day
           // as they could be delayed anyway
-          myAgent.addBehaviour(new ReceiveOrder(myAgent)); 
-          
+//          myAgent.addBehaviour();           
           myAgent.addBehaviour(dailyActivity);
         } else {
           // Termination message to end simulation
@@ -317,7 +323,8 @@ public class CustomerAgent extends Agent {
     }
   }
   
-  
+  // Made cyclic so we dont need to know the number of orders we are expecting for each day
+  // as they could be delayed anyway
   public class ReceiveOrder extends CyclicBehaviour {
     private static final long serialVersionUID = 1L;
     // TODO: do we need an action to transfer money to send when the order is received? Other agents
@@ -346,14 +353,26 @@ public class CustomerAgent extends Agent {
             ShipOrder shipOrder = (ShipOrder) ce;
             Order order = (Order) shipOrder.getOrder();
             
-         // Extract the received component and print it
+            // Extract the received component and print it
             System.out.println("\ncustomer " + getLocalName() + " received order " + order.toString());
-            currentOrders.remove(order); // TODO: current order is not removed
-            receivedOrders.add(order);
-                          
-            // TODO: transfer payment at reception of order
+//            currentOrders.remove(order); // TODO: current order is not removed. CHECK THIS: WHAT IS IT NEEDED FOR
+//            receivedOrders.add(order);
             
+            // Send payment for the received order
+            ACLMessage payMsg = new ACLMessage(ACLMessage.INFORM);
+            payMsg.setLanguage(codec.getName());
+            payMsg.setOntology(ontology.getName()); 
+            payMsg.setConversationId("payment");
+            payMsg.addReceiver(shipOrder.getSender());
             
+            SendPayment sendPayment = new SendPayment();
+            sendPayment.setBuyer(myAgent.getAID());
+            sendPayment.setMoney(shipOrder.getOrder().getPrice());
+            
+            getContentManager().fillContent(payMsg, sendPayment);
+            send(payMsg);
+
+//            System.out.println("\ncust sending " + orderWpr.getTotalCost() + " to supp");
             
           } else {
             System.out.println("Unknown predicate " + ce.getClass().getName());
@@ -374,9 +393,11 @@ public class CustomerAgent extends Agent {
 
   public class EndDay extends OneShotBehaviour {
     private static final long serialVersionUID = 1L;
+    private List<Behaviour> toRemove;
     
-    public EndDay(Agent a) {
+    public EndDay(Agent a, List<Behaviour> toRemove) {
       super(a);
+      this.toRemove = toRemove;
     }
 
     @Override
@@ -387,6 +408,13 @@ public class CustomerAgent extends Agent {
       doneMsg.addReceiver(tickerAgent);
       
       myAgent.send(doneMsg);
+      
+      // Remove cyclic behaviours
+      for (Behaviour b : toRemove) {
+//        myAgent.removeBehaviour(b);
+      }
+      // TODO: need to remove the cust cyclic behaviour otherwise a new one is added
+      // every day
     }
   }
 }

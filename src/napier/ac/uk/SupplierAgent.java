@@ -30,8 +30,10 @@ import napier.ac.uk_ontology.ShopOntology;
 import napier.ac.uk_ontology.actions.AskSuppInfo;
 import napier.ac.uk_ontology.actions.BuyComponents;
 import napier.ac.uk_ontology.concepts.ComputerComponent;
+import napier.ac.uk_ontology.concepts.Order;
 import napier.ac.uk_ontology.predicates.SendSuppInfo;
 import napier.ac.uk_ontology.predicates.OwnsComponents;
+import napier.ac.uk_ontology.predicates.SendPayment;
 import napier.ac.uk_ontology.predicates.ShipComponents;
 import napier.ac.uk_ontology.predicates.ShipOrder;
 
@@ -50,6 +52,7 @@ public abstract class SupplierAgent extends Agent {
   // These are overriden by the specific supplier implementations
   protected HashMap<ComputerComponent, Integer> componentsForSale; // component, price
   protected int suppDeliveryDays; // number of days needed for delivery
+  private double money;
 
   protected void setup() {}
 
@@ -114,7 +117,11 @@ public abstract class SupplierAgent extends Agent {
           CyclicBehaviour sb = new ReceiveRequests(myAgent);
           myAgent.addBehaviour(sb);
           cyclicBehaviours.add(sb);
-
+          
+          CyclicBehaviour rp = new ReceivePayment(myAgent);
+          myAgent.addBehaviour(rp);
+          cyclicBehaviours.add(rp);
+          
           myAgent.addBehaviour(new SendComponents(myAgent));
           myAgent.addBehaviour(new EndDayListener(myAgent, cyclicBehaviours));
         } else {
@@ -357,10 +364,48 @@ public abstract class SupplierAgent extends Agent {
       }
     }
   }
+  
+  public class ReceivePayment extends CyclicBehaviour {
+    private static final long serialVersionUID = 1L;
+    
+    public ReceivePayment(Agent a) {
+      super(a);
+    }
+    
+    @Override
+    public void action() { 
+      MessageTemplate mt = MessageTemplate.and(
+          MessageTemplate.MatchPerformative(ACLMessage.INFORM),
+          MessageTemplate.MatchConversationId("payment"));
+      ACLMessage msg = receive(mt);
+      
+      if(msg != null){
+        try {
+          ContentElement ce = null;
+          ce = getContentManager().extractContent(msg);
+          
+          if (ce instanceof SendPayment) {
+            SendPayment sendPayment = (SendPayment) ce;
+            money += sendPayment.getMoney();
+            System.out.println("\nsupp got " + sendPayment.getMoney() + " from manuf");
+          } else {
+            System.out.println("Unknown predicate " + ce.getClass().getName());
+          }
+        }
+        catch (CodecException ce) {
+          ce.printStackTrace();
+        }
+        catch (OntologyException oe) {
+          oe.printStackTrace();
+        }
+      } else {
+        block();
+      }
+    }
+  }
 
   public class EndDayListener extends CyclicBehaviour {
     private static final long serialVersionUID = 1L;
-    
     private int buyersFinished = 0;
     private List<Behaviour> toRemove;
 
@@ -376,24 +421,24 @@ public abstract class SupplierAgent extends Agent {
       
       if (msg != null) {
         buyersFinished++;
+
+        if (buyersFinished == buyers.size()) {
+  
+          // Inform the ticker that we are done
+          ACLMessage tick = new ACLMessage(ACLMessage.INFORM);
+          tick.setContent("done");
+          tick.addReceiver(tickerAgent);
+          myAgent.send(tick);
+          day++;
+          
+          // Remove cyclic behaviours
+          for (Behaviour b : toRemove) {
+            myAgent.removeBehaviour(b);
+          }
+          myAgent.removeBehaviour(this);
+        }
       } else {
         block();
-      }
-      
-      if (buyersFinished == buyers.size()) {
-
-        // Inform the ticker that we are done
-        ACLMessage tick = new ACLMessage(ACLMessage.INFORM);
-        tick.setContent("done");
-        tick.addReceiver(tickerAgent);
-        myAgent.send(tick);
-        
-        // Remove cyclic behaviours
-        for (Behaviour b : toRemove) {
-          myAgent.removeBehaviour(b);
-        }
-        myAgent.removeBehaviour(this);
-        day++;
       }
     }
 

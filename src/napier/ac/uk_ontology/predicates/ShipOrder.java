@@ -8,15 +8,15 @@ import napier.ac.uk_ontology.concepts.Order;
 public class ShipOrder implements Predicate {
   private static final long serialVersionUID = 1L;
   
-  private AID buyer;
+  private AID sender;
   private Order order;
   
   @Slot(mandatory = true)
-  public AID getBuyer() {
-    return buyer;
+  public AID getSender() {
+    return sender;
   }
-  public void setBuyer(AID buyer) {
-    this.buyer = buyer;
+  public void setSender(AID sender) {
+    this.sender = sender;
   }
   @Slot(mandatory = true)
   public Order getOrder() {
