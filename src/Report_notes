@@ -66,5 +66,8 @@ of what order the payment is for.
 For the report calculate the standard error for the manufacturer profit at the end of the 90 days.
 Also, have a look at standard deviation. To calculate this the whole process could be run 30 
 times and the results could be logged.
+
+Very useful thing was to create a wrapperOrder class that, among other attributes, holds
+the state of the order.
 	
 	

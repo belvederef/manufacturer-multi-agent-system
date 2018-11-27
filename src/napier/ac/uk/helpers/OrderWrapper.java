@@ -9,7 +9,6 @@ import napier.ac.uk_ontology.concepts.Order;
 // This class is used by the manufacturer to keep track of all the things it 
 // needs to know about an order. It includes an order object
 public class OrderWrapper {
-  
   private Order order;
   private AID supplierAssigned; // best supplier
   private AID customer;
@@ -45,7 +44,7 @@ public class OrderWrapper {
   
   // Approved and confirmed are set by manufac 
   public enum State{
-    APPROVED, CONFIRMED, DISMISSED, COMPLETED
+    APPROVED, CONFIRMED, DISMISSED, AWAITING_PAYMENT, PAID
   }
   public State getOrderState() {
     return orderState;

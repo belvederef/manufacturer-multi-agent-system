@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.IntStream;
 
 import jade.content.Concept;
@@ -54,6 +55,7 @@ import napier.ac.uk_ontology.predicates.ShipOrder;
 // A manufacturer is both a buyer and a seller
 public class ManufactAgent extends Agent {
   private static final long serialVersionUID = 1L;
+  private static final AtomicInteger orderIds = new AtomicInteger(0); 
   
   private Codec codec = new SLCodec();
   private Ontology ontology = ShopOntology.getInstance();
@@ -371,8 +373,8 @@ public class ManufactAgent extends Agent {
             
             if (ce instanceof CanManufacture) {
               CanManufacture canManifacture = (CanManufacture) ce;
-              Order tmpOrder = canManifacture.getOrder();
-              orderWpr = new OrderWrapper(tmpOrder);
+              Order order = canManifacture.getOrder();
+              orderWpr = new OrderWrapper(order);
               orderWpr.setCustomer(msg.getSender());
               
               // Note: not needed. We will never have extra components in the warehouse
@@ -464,6 +466,7 @@ public class ManufactAgent extends Agent {
             // Add to list of orders that we said yes to, but not yet confirmed
             orderWpr.setOrderState(OrderWrapper.State.APPROVED);
             orderWpr.setOrderedDate(day);
+            orderWpr.getOrder().setOrderId(orderIds.incrementAndGet());
             orders.add(orderWpr); 
             reply.setPerformative(ACLMessage.CONFIRM);
             
@@ -491,7 +494,7 @@ public class ManufactAgent extends Agent {
   }
   
   
-  private class CollectOrderRequests extends Behaviour{
+  public class CollectOrderRequests extends Behaviour{
     private static final long serialVersionUID = 1L;
     private OrderWrapper orderWpr;
     private AID supplier;
@@ -756,7 +759,7 @@ public class ManufactAgent extends Agent {
   // TODO: receive customer payment it the behaviour below or another one after
   // Note: can experiment with the strategy of sorting the orders by dueDate and ship the ones
   // that have a closer duedate, regardless of if the components were for these orders or not
-  private class ManufactureAndSend extends OneShotBehaviour {
+  public class ManufactureAndSend extends OneShotBehaviour {
     private static final long serialVersionUID = 1L;
 
     public ManufactureAndSend(Agent a) {
@@ -799,7 +802,7 @@ public class ManufactAgent extends Agent {
         try {
           getContentManager().fillContent(msg, shipOrder);
           send(msg);
-          orderWpr.setOrderState(OrderWrapper.State.COMPLETED);
+          orderWpr.setOrderState(OrderWrapper.State.AWAITING_PAYMENT);
           
           // Remove used components from warehouse 
           for (ComputerComponent comp : orderWpr.getOrder().getComputer().getComponentList()) {
@@ -821,7 +824,7 @@ public class ManufactAgent extends Agent {
   public class ReceivePayment extends Behaviour {
     private static final long serialVersionUID = 1L;
     private int numPaymentsLeft = 0;
-    private int paid = 0;
+    private OrderWrapper orderWrp;
     
     public ReceivePayment(Agent a) {
       super(a);
@@ -835,9 +838,8 @@ public class ManufactAgent extends Agent {
       ACLMessage msg = receive(mt);
       
       numPaymentsLeft = (int) orders.stream()
-          .filter(o -> o.getOrderState() == OrderWrapper.State.COMPLETED)
-          .count() - paid;
-      // THE COMPLETED ORDER ADDED THE FOLLOWING DAY NEVER GET THIS WORK
+          .filter(o -> o.getOrderState() == OrderWrapper.State.AWAITING_PAYMENT)
+          .count(); 
       
       if(msg != null){
         try {
@@ -846,11 +848,15 @@ public class ManufactAgent extends Agent {
           
           if (ce instanceof SendPayment) {
             SendPayment sendPayment = (SendPayment) ce;
+            System.out.println("\nmanuf got " + sendPayment.getMoney() + " from cust " + sendPayment.getBuyer());
+
+            orderWrp = orders.stream()
+              .filter(o -> o.getOrder().getOrderId() == sendPayment.getOrderId())
+              .findFirst().orElse(null);
+            orderWrp.setOrderState(OrderWrapper.State.PAID);
+            
             // Add to daily profit
             dailyProfit += sendPayment.getMoney();
-            System.out.println("\nmanuf got " + sendPayment.getMoney() + " from cust " + sendPayment.getBuyer());
-            // TODO: could change the order state to paid
-            paid++;
           } else {
             System.out.println("Unknown predicate " + ce.getClass().getName());
           }
@@ -870,6 +876,7 @@ public class ManufactAgent extends Agent {
       return numPaymentsLeft == 0;
     }
   }
+  
   
   // Profit on a single day 
   // TotalValueOfOrdersShipped(d)  – PenaltyForLateOrders(d) –
@@ -905,11 +912,11 @@ public class ManufactAgent extends Agent {
       }
       
       // Once calculation is done, remove the orders flagged as completed
-      orders.removeIf(o -> o.getOrderState() == OrderWrapper.State.COMPLETED); 
+      //TODO: CHANGE STATE TO PAID - REMOVE PAID
+      orders.removeIf(o -> o.getOrderState() == OrderWrapper.State.PAID); 
       
       // Add to the total profit
       totalProfit += dailyProfit;
-      
       
       System.out.println("\nToday's profit was: " + dailyProfit);
       System.out.println("Total profit is: " + totalProfit);

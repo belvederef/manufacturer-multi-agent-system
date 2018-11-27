@@ -275,7 +275,7 @@ public abstract class SupplierAgent extends Agent {
   }
 
   // Receive requests for component orders
-  private class ReceiveRequests extends CyclicBehaviour {
+  public class ReceiveRequests extends CyclicBehaviour {
     private static final long serialVersionUID = 1L;
 
     public ReceiveRequests(Agent a) {
@@ -329,7 +329,7 @@ public abstract class SupplierAgent extends Agent {
   }
   
   // Send components when the number of delivery days of the supplier have passed
-  private class SendComponents extends OneShotBehaviour {
+  public class SendComponents extends OneShotBehaviour {
     private static final long serialVersionUID = 1L;
     
     public SendComponents(Agent a) {

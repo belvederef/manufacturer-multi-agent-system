@@ -8,6 +8,7 @@ public class SendPayment implements Predicate {
   private static final long serialVersionUID = 1L;
 
   private AID buyer;
+  private int orderId;
   private double money;
 
   @Slot(mandatory = true)
@@ -16,6 +17,12 @@ public class SendPayment implements Predicate {
   }
   public void setBuyer(AID buyer) {
     this.buyer = buyer;
+  }
+  public int getOrderId() {
+    return orderId;
+  }
+  public void setOrderId(int orderId) {
+    this.orderId = orderId;
   }
   @Slot(mandatory = true)
   public double getMoney() {

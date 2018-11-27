@@ -368,6 +368,7 @@ public class CustomerAgent extends Agent {
             SendPayment sendPayment = new SendPayment();
             sendPayment.setBuyer(myAgent.getAID());
             sendPayment.setMoney(shipOrder.getOrder().getPrice());
+            sendPayment.setOrderId(order.getOrderId());
             
             getContentManager().fillContent(payMsg, sendPayment);
             send(payMsg);
