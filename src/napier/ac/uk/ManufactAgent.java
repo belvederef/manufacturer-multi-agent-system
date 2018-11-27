@@ -877,10 +877,6 @@ public class ManufactAgent extends Agent {
     }
   }
   
-  
-  // Profit on a single day 
-  // TotalValueOfOrdersShipped(d)  – PenaltyForLateOrders(d) –
-  // WarehouseStorage(d) – SuppliesPurchased(d),
   public class EndDay extends OneShotBehaviour {
     private static final long serialVersionUID = 1L;
     
@@ -892,10 +888,6 @@ public class ManufactAgent extends Agent {
     public void action() {
       for (OrderWrapper orderWpr : orders) {
         // Note: the money paid to the supplier are subtracted where these orders are made 
-        // Add to daily profit all the orders completed/shipped today
-//        if (orderWpr.getOrderState() == OrderWrapper.State.COMPLETED) {
-//          dailyProfit += orderWpr.getOrder().getPrice(); 
-//        }
         
         // Calc and subtract penalty for late delivery
         if (orderWpr.getExactDayDue() < day) {
@@ -911,8 +903,7 @@ public class ManufactAgent extends Agent {
         dailyProfit -= loss;
       }
       
-      // Once calculation is done, remove the orders flagged as completed
-      //TODO: CHANGE STATE TO PAID - REMOVE PAID
+      // Once calculation is done, remove the orders flagged as paid (completed)
       orders.removeIf(o -> o.getOrderState() == OrderWrapper.State.PAID); 
       
       // Add to the total profit
@@ -937,9 +928,6 @@ public class ManufactAgent extends Agent {
       myAgent.send(doneMsg);
       day++;
       dailyProfit = 0;
-//      myAgent.removeBehaviour(this);
-      // TODO: check if necessary to remove behaviours at the end for this agent 
-      // and the customers
     }
   }
 }

@@ -12,13 +12,6 @@ import napier.ac.uk_ontology.computerComponents.Os;
 import napier.ac.uk_ontology.computerComponents.Ram;
 import napier.ac.uk_ontology.computerComponents.Screen;
 
-//Concepts i.e. expressions that indicate entities with a complex structure that can be defined in
-//terms of slots e.g. (Person :name John :age 33)
-//Concepts typically make no sense if used directly as the content of an ACL message. I general they
-//are referenced inside predicates and other concepts such as in
-//(Book :title �The Lord of the rings� :author (Person :name �J.R.R. Tolkjien�)) 
-
-//TODO: make the computer only have enums for ram, hardDrive and OS
 public abstract class Computer implements Concept {
   private static final long serialVersionUID = 1L;
   
@@ -81,6 +74,7 @@ public abstract class Computer implements Concept {
     componentList.add(os);
     componentList.add(cpu);
     componentList.add(motherboard);
+    if (screen != null) componentList.add(screen);
     return componentList;
   }
   
@@ -106,7 +100,8 @@ public abstract class Computer implements Concept {
           && this.hardDrive.equals(that.hardDrive)
           && this.os.equals(that.os)
           && this.cpu.equals(that.cpu)
-          && this.motherboard.equals(that.motherboard);
+          && this.motherboard.equals(that.motherboard)
+          && this.screen != null ? this.screen.equals(that.screen) : true;
   }
   
   @Override
