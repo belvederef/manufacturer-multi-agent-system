@@ -4,7 +4,7 @@ import jade.content.Predicate;
 import jade.content.onto.annotations.Slot;
 import jade.core.AID;
 
-public class SendPayment implements Predicate {
+public class SendsPayment implements Predicate {
   private static final long serialVersionUID = 1L;
 
   private AID buyer;

@@ -8,7 +8,7 @@ import jade.core.AID;
 import napier.ac.uk_ontology.concepts.ComputerComponent;
 
 // Hashmaps are not supported... use lists. Could not find a way to make this work
-public class SendSuppInfo implements Predicate {
+public class SendsSuppInfo implements Predicate {
   private static final long serialVersionUID = 1L;
   
   private AID supplier;

@@ -58,9 +58,7 @@ public class Ticker extends Agent {
 		private int numFinReceived = 0; //finished messages from other agents
 		private int day = 0;
 		private ArrayList<AID> simulationAgents = new ArrayList<>();
-		/**
-		 * @param a	the agent executing the behaviour
-		 */
+
 		public SynchAgentsBehaviour(Agent a) {
 			super(a);
 		}
@@ -109,6 +107,7 @@ public class Ticker extends Agent {
 				step++;
 				day++;
 				break;
+				
 			case 1:
 				//wait to receive a "done" message from all agents
 				MessageTemplate mt = MessageTemplate.MatchContent("done");
@@ -131,7 +130,6 @@ public class Ticker extends Agent {
 			return step == 2;
 		}
 
-		
 		@Override
 		public void reset() {
 			super.reset();
@@ -140,7 +138,6 @@ public class Ticker extends Agent {
 			numFinReceived = 0;
 		}
 
-		
 		@Override
 		public int onEnd() {
 			System.out.println("\n\n\nEnd of day " + day + "\n\n\n");
@@ -161,9 +158,5 @@ public class Ticker extends Agent {
 			
 			return 0;
 		}
-
-
-
 	}
-
 }

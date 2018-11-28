@@ -25,15 +25,16 @@ import jade.domain.FIPAAgentManagement.ServiceDescription;
 import jade.lang.acl.ACLMessage;
 import jade.lang.acl.MessageTemplate;
 import napier.ac.uk.SupplierAgent.TickerWaiter;
+import napier.ac.uk.helpers.OrderWrapper;
 import napier.ac.uk.helpers.SuppOrderWrapper;
 import napier.ac.uk_ontology.ShopOntology;
 import napier.ac.uk_ontology.actions.AskSuppInfo;
 import napier.ac.uk_ontology.actions.BuyComponents;
 import napier.ac.uk_ontology.concepts.ComputerComponent;
-import napier.ac.uk_ontology.predicates.SendSuppInfo;
+import napier.ac.uk_ontology.predicates.SendsSuppInfo;
 import napier.ac.uk_ontology.predicates.OwnsComponents;
-import napier.ac.uk_ontology.predicates.SendPayment;
-import napier.ac.uk_ontology.predicates.ShipComponents;
+import napier.ac.uk_ontology.predicates.SendsPayment;
+import napier.ac.uk_ontology.predicates.ShipsComponents;
 
 public class SupplierAgent extends Agent {
   private static final long serialVersionUID = 1L;
@@ -84,24 +85,6 @@ public class SupplierAgent extends Agent {
     
     addBehaviour(new TickerWaiter(this));
   }
-
-//  protected void register() {
-//    getContentManager().registerLanguage(codec);
-//    getContentManager().registerOntology(ontology);
-//
-//    // add this agent to the yellow pages
-//    DFAgentDescription dfd = new DFAgentDescription();
-//    dfd.setName(getAID());
-//    ServiceDescription sd = new ServiceDescription();
-//    sd.setType("supplier");
-//    sd.setName(getLocalName() + "-supplier-agent");
-//    dfd.addServices(sd);
-//    try {
-//      DFService.register(this, dfd);
-//    } catch (FIPAException e) {
-//      e.printStackTrace();
-//    }
-//  }
 
   @Override
   protected void takeDown() {
@@ -229,7 +212,7 @@ public class SupplierAgent extends Agent {
               }
               
               // Make message predicate
-              SendSuppInfo sendSuppInfo = new SendSuppInfo();
+              SendsSuppInfo sendSuppInfo = new SendsSuppInfo();
               sendSuppInfo.setSupplier(myAgent.getAID());
               sendSuppInfo.setSpeed(suppDeliveryDays);
               sendSuppInfo.setComponentsForSaleKeys(compsKeys);
@@ -268,7 +251,7 @@ public class SupplierAgent extends Agent {
     public void action() {
       MessageTemplate mt = MessageTemplate.and(
           MessageTemplate.MatchPerformative(ACLMessage.QUERY_IF),
-          MessageTemplate.MatchConversationId("component-selling"));
+          MessageTemplate.MatchConversationId("component-selling-ask"));
       ACLMessage msg = myAgent.receive(mt);
       
       if (msg != null) {
@@ -287,7 +270,7 @@ public class SupplierAgent extends Agent {
             
             ACLMessage reply = msg.createReply();
             reply.setPerformative(ACLMessage.ACCEPT_PROPOSAL);
-            reply.setConversationId("component-selling");
+            reply.setConversationId("component-selling-reply");
             myAgent.send(reply);
           } else {
             System.out.println("Unknown predicate " + ce.getClass().getName());
@@ -316,7 +299,7 @@ public class SupplierAgent extends Agent {
       // This behaviour should only respond to REQUEST messages
       MessageTemplate mt = MessageTemplate.and(
           MessageTemplate.MatchPerformative(ACLMessage.REQUEST),
-          MessageTemplate.MatchConversationId("component-selling"));
+          MessageTemplate.MatchConversationId("component-selling-req"));
       ACLMessage msg = receive(mt);
       
       if (msg != null) {
@@ -338,10 +321,6 @@ public class SupplierAgent extends Agent {
               order.setComponents(compList);
               order.setQuantity(quantity);
               orders.add(order); // Add to total list of orders
-              
-              System.out.println("The supplier speed is " + suppDeliveryDays + ", today is day " 
-                  + day + ", the order will be sent on day " + (suppDeliveryDays + day) );
-              
             } else {
             System.out.println("Unknown predicate " + ce.getClass().getName());
             }
@@ -366,19 +345,18 @@ public class SupplierAgent extends Agent {
     }
     
     @Override
-    public void action() {
+    public void action() {       
       for (SuppOrderWrapper order : orders) {
         if (order.getDeliveryDay() != day) continue;
         
-        // Prepare the INFORM message.
         ACLMessage msg = new ACLMessage(ACLMessage.INFORM);
         msg.setLanguage(codec.getName());
         msg.setOntology(ontology.getName()); 
-        msg.setConversationId("component-selling");
+        msg.setConversationId("component-selling-send");
         msg.addReceiver(order.getBuyer());
         
-        ShipComponents shipComponents = new ShipComponents();
-        shipComponents.setBuyer(order.getBuyer());
+        ShipsComponents shipComponents = new ShipsComponents();
+        shipComponents.setSeller(myAgent.getAID());
         shipComponents.setComponents(order.getComponents());
         shipComponents.setQuantity(order.getQuantity());
         
@@ -413,10 +391,9 @@ public class SupplierAgent extends Agent {
           ContentElement ce = null;
           ce = getContentManager().extractContent(msg);
           
-          if (ce instanceof SendPayment) {
-            SendPayment sendPayment = (SendPayment) ce;
+          if (ce instanceof SendsPayment) {
+            SendsPayment sendPayment = (SendsPayment) ce;
             money += sendPayment.getMoney();
-            System.out.println("\nsupp got " + sendPayment.getMoney() + " from manuf");
           } else {
             System.out.println("Unknown predicate " + ce.getClass().getName());
           }
@@ -470,6 +447,5 @@ public class SupplierAgent extends Agent {
         block();
       }
     }
-
   }
 }

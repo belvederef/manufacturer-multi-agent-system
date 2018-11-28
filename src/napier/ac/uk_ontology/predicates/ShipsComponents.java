@@ -7,19 +7,19 @@ import jade.content.onto.annotations.Slot;
 import jade.core.AID;
 import napier.ac.uk_ontology.concepts.ComputerComponent;
 
-public class ShipComponents implements Predicate {
+public class ShipsComponents implements Predicate {
   private static final long serialVersionUID = 1L;
   
-  private AID buyer;
+  private AID seller;
   private ArrayList<ComputerComponent> components;
   private int quantity;
   
   @Slot(mandatory = true)
-  public AID getBuyer() {
-    return buyer;
+  public AID getSeller() {
+    return seller;
   }
-  public void setBuyer(AID buyer) {
-    this.buyer = buyer;
+  public void setSeller(AID seller) {
+    this.seller = seller;
   }
   @Slot(mandatory = true)
   public ArrayList<ComputerComponent> getComponents() {

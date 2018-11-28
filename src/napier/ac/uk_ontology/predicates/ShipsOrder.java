@@ -5,7 +5,7 @@ import jade.content.onto.annotations.Slot;
 import jade.core.AID;
 import napier.ac.uk_ontology.concepts.Order;
 
-public class ShipOrder implements Predicate {
+public class ShipsOrder implements Predicate {
   private static final long serialVersionUID = 1L;
   
   private AID sender;

@@ -34,8 +34,8 @@ import napier.ac.uk_ontology.concepts.Desktop;
 import napier.ac.uk_ontology.concepts.Laptop;
 import napier.ac.uk_ontology.concepts.Order;
 import napier.ac.uk_ontology.predicates.CanManufacture;
-import napier.ac.uk_ontology.predicates.SendPayment;
-import napier.ac.uk_ontology.predicates.ShipOrder;
+import napier.ac.uk_ontology.predicates.SendsPayment;
+import napier.ac.uk_ontology.predicates.ShipsOrder;
 
 public class CustomerAgent extends Agent {
   private static final long serialVersionUID = 1L;
@@ -184,8 +184,6 @@ public class CustomerAgent extends Agent {
       order.setQuantity(quantity);
       order.setPrice(quantity * (int) Math.floor(600 + 200 * rand.nextFloat()));
       order.setDueInDays((int) Math.floor(1 + 10 * rand.nextFloat()));
-      
-      System.out.println("\n New customer agent order is: " + order);
     }
   }
   
@@ -228,7 +226,7 @@ public class CustomerAgent extends Agent {
       ACLMessage msg = new ACLMessage(ACLMessage.QUERY_IF);
       msg.setLanguage(codec.getName());
       msg.setOntology(ontology.getName()); 
-      msg.setConversationId("customer-order");
+      msg.setConversationId("customer-order-ask");
       msg.addReceiver(manufacturer);
       
       CanManufacture canManufacture = new CanManufacture();
@@ -265,7 +263,7 @@ public class CustomerAgent extends Agent {
     public void action() {    
       // Match the conversation id and a confirm or disconfirm message
       MessageTemplate mt = MessageTemplate.and(
-          MessageTemplate.MatchConversationId("customer-order"),
+          MessageTemplate.MatchConversationId("customer-order-reply"),
           MessageTemplate.or(
               MessageTemplate.MatchPerformative(ACLMessage.ACCEPT_PROPOSAL),
               MessageTemplate.MatchPerformative(ACLMessage.REJECT_PROPOSAL)));
@@ -283,7 +281,7 @@ public class CustomerAgent extends Agent {
           ACLMessage orderMsg = new ACLMessage(ACLMessage.REQUEST);
           orderMsg.setLanguage(codec.getName());
           orderMsg.setOntology(ontology.getName()); 
-          orderMsg.setConversationId("customer-order");
+          orderMsg.setConversationId("customer-order-req");
           orderMsg.addReceiver(manufacturer);
           
           // Prepare the content. 
@@ -334,7 +332,7 @@ public class CustomerAgent extends Agent {
     public void action() { 
       MessageTemplate mt = MessageTemplate.and(
           MessageTemplate.MatchPerformative(ACLMessage.INFORM),
-          MessageTemplate.MatchConversationId("customer-order"));
+          MessageTemplate.MatchConversationId("customer-order-send"));
       ACLMessage msg = receive(mt);
       
       if(msg != null){
@@ -342,8 +340,8 @@ public class CustomerAgent extends Agent {
           ContentElement ce = null;
           ce = getContentManager().extractContent(msg);
           
-          if (ce instanceof ShipOrder) {
-            ShipOrder shipOrder = (ShipOrder) ce;
+          if (ce instanceof ShipsOrder) {
+            ShipsOrder shipOrder = (ShipsOrder) ce;
             Order order = (Order) shipOrder.getOrder();
             orders.remove(order); // Received, remove
             
@@ -354,7 +352,7 @@ public class CustomerAgent extends Agent {
             payMsg.setConversationId("payment");
             payMsg.addReceiver(shipOrder.getSender());
             
-            SendPayment sendPayment = new SendPayment();
+            SendsPayment sendPayment = new SendsPayment();
             sendPayment.setBuyer(myAgent.getAID());
             sendPayment.setMoney(shipOrder.getOrder().getPrice());
             sendPayment.setOrderId(order.getOrderId());
