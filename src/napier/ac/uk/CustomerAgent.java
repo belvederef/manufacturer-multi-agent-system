@@ -37,7 +37,6 @@ import napier.ac.uk_ontology.predicates.CanManufacture;
 import napier.ac.uk_ontology.predicates.SendPayment;
 import napier.ac.uk_ontology.predicates.ShipOrder;
 
-
 public class CustomerAgent extends Agent {
   private static final long serialVersionUID = 1L;
   
@@ -49,6 +48,7 @@ public class CustomerAgent extends Agent {
   private Order order; // The order for today
   private AID tickerAgent;
   private int day = 1;
+  
   @Override
   protected void setup() {
     // Set up the ontology
@@ -62,7 +62,7 @@ public class CustomerAgent extends Agent {
     sd.setType("customer");
     sd.setName(getLocalName() + "-customer-agent");
     dfd.addServices(sd);
-    try{
+    try {
       DFService.register(this, dfd);
     }
     catch(FIPAException e){
@@ -108,7 +108,7 @@ public class CustomerAgent extends Agent {
           // Sub-behaviours will execute in the order they are added
           dailyActivity.addSubBehaviour(new CreateOrder(myAgent));
           dailyActivity.addSubBehaviour(new FindManufacturers(myAgent));
-          dailyActivity.addSubBehaviour(new AskIfCanManufacture(myAgent));
+          dailyActivity.addSubBehaviour(new AskIfWillManufacture(myAgent));
           dailyActivity.addSubBehaviour(new MakeOrderAction(myAgent));          
           dailyActivity.addSubBehaviour(new EndDay(myAgent));
           
@@ -215,10 +215,10 @@ public class CustomerAgent extends Agent {
     }
   }
 
-  public class AskIfCanManufacture extends OneShotBehaviour {
+  public class AskIfWillManufacture extends OneShotBehaviour {
     private static final long serialVersionUID = 1L;
 
-    public AskIfCanManufacture(Agent a) {
+    public AskIfWillManufacture(Agent a) {
       super(a);
     }
 
@@ -267,15 +267,15 @@ public class CustomerAgent extends Agent {
       MessageTemplate mt = MessageTemplate.and(
           MessageTemplate.MatchConversationId("customer-order"),
           MessageTemplate.or(
-              MessageTemplate.MatchPerformative(ACLMessage.CONFIRM),
-              MessageTemplate.MatchPerformative(ACLMessage.DISCONFIRM)));
+              MessageTemplate.MatchPerformative(ACLMessage.ACCEPT_PROPOSAL),
+              MessageTemplate.MatchPerformative(ACLMessage.REJECT_PROPOSAL)));
 
       
       ACLMessage msg = myAgent.receive(mt);
       System.out.println("\nmsg received in MakeOrderAction is: " + msg);
       if(msg != null) {
         replyReceived = true;
-        if(msg.getPerformative() == ACLMessage.CONFIRM) {
+        if(msg.getPerformative() == ACLMessage.ACCEPT_PROPOSAL) {
           // The order was accepted
           System.out.println("\nThe order was accepted! YAY! Now making request...");
           
@@ -305,7 +305,7 @@ public class CustomerAgent extends Agent {
           catch (OntologyException oe) {
            oe.printStackTrace();
           } 
-        } else if(msg.getPerformative() == ACLMessage.REFUSE) {
+        } else {
           // The order was not accepted
           System.out.println("\nThe order was not accepted! Costumer " + myAgent.getLocalName() + " is done.");
         }

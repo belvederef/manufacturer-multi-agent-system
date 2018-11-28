@@ -24,6 +24,7 @@ import jade.domain.FIPAAgentManagement.DFAgentDescription;
 import jade.domain.FIPAAgentManagement.ServiceDescription;
 import jade.lang.acl.ACLMessage;
 import jade.lang.acl.MessageTemplate;
+import napier.ac.uk.SupplierAgent.TickerWaiter;
 import napier.ac.uk.helpers.SuppOrderWrapper;
 import napier.ac.uk_ontology.ShopOntology;
 import napier.ac.uk_ontology.actions.AskSuppInfo;
@@ -34,7 +35,7 @@ import napier.ac.uk_ontology.predicates.OwnsComponents;
 import napier.ac.uk_ontology.predicates.SendPayment;
 import napier.ac.uk_ontology.predicates.ShipComponents;
 
-public abstract class SupplierAgent extends Agent {
+public class SupplierAgent extends Agent {
   private static final long serialVersionUID = 1L;
   
   private Codec codec = new SLCodec();
@@ -51,9 +52,11 @@ public abstract class SupplierAgent extends Agent {
   protected int suppDeliveryDays; // number of days needed for delivery
   private double money;
 
-  protected void setup() {}
+  @Override
+  @SuppressWarnings("unchecked")
+  protected void setup() {
+    System.out.println("Created supplier " + getLocalName());
 
-  protected void register() {
     getContentManager().registerLanguage(codec);
     getContentManager().registerOntology(ontology);
 
@@ -69,7 +72,36 @@ public abstract class SupplierAgent extends Agent {
     } catch (FIPAException e) {
       e.printStackTrace();
     }
+    
+    
+    // Add price list and the speed for this supplier
+    Object[] args = getArguments();
+    if (args != null && args.length > 1) {
+    componentsForSale = (HashMap<ComputerComponent, Integer>) args[0];
+    suppDeliveryDays = (int) args[1];
+    }
+    
+    
+    addBehaviour(new TickerWaiter(this));
   }
+
+//  protected void register() {
+//    getContentManager().registerLanguage(codec);
+//    getContentManager().registerOntology(ontology);
+//
+//    // add this agent to the yellow pages
+//    DFAgentDescription dfd = new DFAgentDescription();
+//    dfd.setName(getAID());
+//    ServiceDescription sd = new ServiceDescription();
+//    sd.setType("supplier");
+//    sd.setName(getLocalName() + "-supplier-agent");
+//    dfd.addServices(sd);
+//    try {
+//      DFService.register(this, dfd);
+//    } catch (FIPAException e) {
+//      e.printStackTrace();
+//    }
+//  }
 
   @Override
   protected void takeDown() {
@@ -254,7 +286,7 @@ public abstract class SupplierAgent extends Agent {
             // Skip logic, we would need to check the stock but we have unlimited stock in this example project 
             
             ACLMessage reply = msg.createReply();
-            reply.setPerformative(ACLMessage.CONFIRM);
+            reply.setPerformative(ACLMessage.ACCEPT_PROPOSAL);
             reply.setConversationId("component-selling");
             myAgent.send(reply);
           } else {

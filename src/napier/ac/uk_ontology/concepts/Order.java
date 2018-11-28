@@ -8,7 +8,7 @@ import jade.content.onto.annotations.Slot;
 public class Order implements Concept {
   private static final long serialVersionUID = 1L;
   
-  private int orderId; // This is set by the manufacturer
+  private int orderId = -1; // This is set by the manufacturer
   private Computer computer; // All are the same computer, so list probably not needed. If list, use @AggregateSlot(cardMin = 1)
   private int quantity;
   private double price;

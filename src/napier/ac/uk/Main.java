@@ -3,6 +3,7 @@ import jade.core.*;
 import jade.core.Runtime;
 import jade.wrapper.AgentController;
 import jade.wrapper.ContainerController;
+import napier.ac.uk.helpers.SuppPriceLists;
 
 
 public class Main {
@@ -25,17 +26,16 @@ public class Main {
         customer.start();
       }
       	      
-      
 			// Create the three suppliers
-      // Note: argue that as the different suppliers have different names, components list
-      // prices and delivery times they are essentially different suppliers, thus must inherit
-      // only the commong methods from a parent supplier class (which are all apart from the setup)
       AgentController supplierSlow = myContainer.createNewAgent("supplierSlow", 
-          SupplierSlowAgent.class.getCanonicalName(), null);
+          SupplierAgent.class.getCanonicalName(), new Object[] { 
+              SuppPriceLists.getSlowSuppComps(), 7 });
       AgentController supplierMed = myContainer.createNewAgent("supplierMed", 
-          SupplierMedAgent.class.getCanonicalName(), null);
+          SupplierAgent.class.getCanonicalName(), new Object[] { 
+              SuppPriceLists.getMedSuppComps(), 3 });
       AgentController supplierFast = myContainer.createNewAgent("supplierFast", 
-          SupplierFastAgent.class.getCanonicalName(), null);
+          SupplierAgent.class.getCanonicalName(), new Object[] { 
+              SuppPriceLists.getFastSuppComps(), 1 });
       supplierSlow.start();
       supplierMed.start();
       supplierFast.start();

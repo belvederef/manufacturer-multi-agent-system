@@ -312,11 +312,7 @@ public class ManufactAgent extends Agent {
   private class OrderReplyBehaviour extends Behaviour{
     private static final long serialVersionUID = 1L;
     private OrderWrapper orderWpr;
-    MessageTemplate mt;
-    private ACLMessage msg;
-    private int step = 0;
     private int repliesSent = 0;
-    private double orderProfit;
 
     public OrderReplyBehaviour(Agent a) {
       super(a);
@@ -324,26 +320,24 @@ public class ManufactAgent extends Agent {
     
     @Override
     public void action() {
-      switch (step) {  
-      case 0:
-        // Receive order and calculate profit
-        mt = MessageTemplate.and(
-            MessageTemplate.MatchPerformative(ACLMessage.QUERY_IF),
-            MessageTemplate.MatchConversationId("customer-order"));
-        msg = receive(mt);
-        
-        if(msg != null){
-          try {
-            ContentElement ce = null;
-            ce = getContentManager().extractContent(msg);
+      // Receive order and calculate profit
+      MessageTemplate mt = MessageTemplate.and(
+          MessageTemplate.MatchPerformative(ACLMessage.QUERY_IF),
+          MessageTemplate.MatchConversationId("customer-order"));
+      ACLMessage msg = receive(mt);
+      
+      if(msg != null){
+        try {
+          ContentElement ce = null;
+          ce = getContentManager().extractContent(msg);
+          
+          if (ce instanceof CanManufacture) {
+            CanManufacture canManifacture = (CanManufacture) ce;
+            Order order = canManifacture.getOrder();
+            orderWpr = new OrderWrapper(order);
+            orderWpr.setCustomer(msg.getSender());
             
-            if (ce instanceof CanManufacture) {
-              CanManufacture canManifacture = (CanManufacture) ce;
-              Order order = canManifacture.getOrder();
-              orderWpr = new OrderWrapper(order);
-              orderWpr.setCustomer(msg.getSender());
-              
-              // Note: not needed. We will never have extra components in the warehouse
+            // Note: not needed. We will never have extra components in the warehouse
 //              Boolean allCompsAvailable = true;
 //              for (ComputerComponent comp : orderWpr.getOrder().getComputer().getComponentList()) {
 //                // If there are not enough components in the warehouse, flag as false
@@ -354,98 +348,92 @@ public class ManufactAgent extends Agent {
 //                  break;
 //                }
 //              }
-              // Can add something like: if all comps are available, proceed to ship
-                
+            // Can add something like: if all comps are available, proceed to ship
               
-              // Calc how much it would cost to fulfill the order for each supplier
-              HashMap <AID, Double> supplierCosts = new HashMap<>();
+            
+            // Calc how much it would cost to fulfill the order for each supplier
+            HashMap <AID, Double> supplierCosts = new HashMap<>();
+            
+            for (Entry<AID, SupplierHelper> supplier : suppliers.entrySet()) {
+              double totCost = 0;
               
-              for (Entry<AID, SupplierHelper> supplier : suppliers.entrySet()) {
-                double totCost = 0;
-                
-                for(ComputerComponent comp : orderWpr.getOrder().getComputer().getComponentList()) {
-                  if (comp != null) { // Some component, like the laptop screen, can be null
-                    totCost += supplier.getValue().getPriceList().get(comp);
-                  }
-                }
-                
-                totCost *= orderWpr.getOrder().getQuantity();
-                supplierCosts.put(supplier.getKey(), totCost);
-              }
-              
-              
-              // Pick the supplier that will grant us the best profit
-              AID bestSupplier = null;
-              double maxProfit = 0, expectedProfit = 0;
-              int lateDeliveryFee = 0, daysLate = 0;
-              
-              for (SupplierHelper supplier : suppliers.values()) {
-                // Calc how many days after order due date the supplier will ship components 
-                daysLate = supplier.getDeliveryDays() - orderWpr.getOrder().getDueInDays();
-                if (daysLate > 0) {
-                  lateDeliveryFee = daysLate * 50;
-                } else {
-                  lateDeliveryFee = 0;
-                }
-                expectedProfit = orderWpr.getOrder().getPrice() 
-                    - supplierCosts.get(supplier.getAid())
-                    - lateDeliveryFee;
-                
-                if (bestSupplier == null && expectedProfit > 0) {
-                  // If there is no best supplier, get the first that grants some profit
-                  bestSupplier = supplier.getAid();
-                  maxProfit = expectedProfit;
-                } else if (expectedProfit > maxProfit) {
-                  bestSupplier = supplier.getAid();
-                  maxProfit = expectedProfit;
+              for(ComputerComponent comp : orderWpr.getOrder().getComputer().getComponentList()) {
+                if (comp != null) { // Some component, like the laptop screen, can be null
+                  totCost += supplier.getValue().getPriceList().get(comp);
                 }
               }
               
+              totCost *= orderWpr.getOrder().getQuantity();
+              supplierCosts.put(supplier.getKey(), totCost);
+            }
+            
+            
+            // Pick the supplier that will grant us the best profit
+            AID bestSupplier = null;
+            double maxProfit = 0, expectedProfit = 0;
+            int lateDeliveryFee = 0, daysLate = 0;
+            
+            for (SupplierHelper supplier : suppliers.values()) {
+              // Calc how many days after order due date the supplier will ship components 
+              daysLate = supplier.getDeliveryDays() - orderWpr.getOrder().getDueInDays();
+              if (daysLate > 0) {
+                lateDeliveryFee = daysLate * 50;
+              } else {
+                lateDeliveryFee = 0;
+              }
+              expectedProfit = orderWpr.getOrder().getPrice() 
+                  - supplierCosts.get(supplier.getAid())
+                  - lateDeliveryFee;
+              
+              if (bestSupplier == null && expectedProfit > 0) {
+                // If there is no best supplier, get the first that grants some profit
+                bestSupplier = supplier.getAid();
+                maxProfit = expectedProfit;
+              } else if (expectedProfit > maxProfit) {
+                bestSupplier = supplier.getAid();
+                maxProfit = expectedProfit;
+              }
+            }
+            
+            // Send reply to buyer
+            ACLMessage reply = msg.createReply();
+            if (bestSupplier != null) {
+              // We know that the profit is positive if this runs
+              // Add to list of orders that we said yes to, but not yet confirmed
+              orderWpr.setSupplierAssigned(bestSupplier);
+              orderWpr.setTotalCost(supplierCosts.get(bestSupplier));
+              orderWpr.setOrderState(OrderWrapper.State.APPROVED);
+              orderWpr.setOrderedDate(day);
+              orderWpr.getOrder().setOrderId(orderIds.incrementAndGet());
+              orders.add(orderWpr); 
+              
+              // TODO: dev, remove
               int daysDue = orderWpr.getOrder().getDueInDays();
               System.out.println("Speed required in days is: " + daysDue);
               System.out.println("The best supplier for this order is: " + bestSupplier);
-              orderWpr.setSupplierAssigned(bestSupplier);
-              orderWpr.setTotalCost(supplierCosts.get(bestSupplier));
               
-              orderProfit = orderWpr.getOrder().getPrice() - supplierCosts.get(bestSupplier);
-              step++;              
+              // The order is profitable, accept
+              reply.setPerformative(ACLMessage.ACCEPT_PROPOSAL);
             } else {
-              System.out.println("Unknown predicate " + ce.getClass().getName());
+              // The order is not profitable enough, decline
+              reply.setPerformative(ACLMessage.REJECT_PROPOSAL);
             }
-          }
-          catch (CodecException ce) {
-            ce.printStackTrace();
-          }
-          catch (OntologyException oe) {
-            oe.printStackTrace();
-          }
-        } else {
-          block();
-        }
-      break;
-        
-        
-      case 1:
-          ACLMessage reply = msg.createReply();
-          if(orderProfit > 0) { 
             
-            // Add to list of orders that we said yes to, but not yet confirmed
-            orderWpr.setOrderState(OrderWrapper.State.APPROVED);
-            orderWpr.setOrderedDate(day);
-            orderWpr.getOrder().setOrderId(orderIds.incrementAndGet());
-            orders.add(orderWpr); 
-            reply.setPerformative(ACLMessage.CONFIRM);
-            
-            System.out.println("\nSending response to the customer. We accept.");
+            myAgent.send(reply);
+            repliesSent++;       
           } else {
-            System.out.println("\nThe order is not profitable enough for the manuf. We decline.");
-            reply.setPerformative(ACLMessage.DISCONFIRM);
+            System.out.println("Unknown predicate " + ce.getClass().getName());
           }
-          myAgent.send(reply);
-          repliesSent++;
-          step = 0; // This order was processed, reset cycle
-          break;
         }
+        catch (CodecException ce) {
+          ce.printStackTrace();
+        }
+        catch (OntologyException oe) {
+          oe.printStackTrace();
+        }
+      } else {
+        block();
+      }
     }
 
     @Override
@@ -485,14 +473,11 @@ public class ManufactAgent extends Agent {
               if (action instanceof MakeOrder) {
                 MakeOrder makeOrder = (MakeOrder)action;
                              
-                int idxOrder = IntStream.range(0, orders.size())
-                    .filter(i -> makeOrder.getOrder().equals(orders.get(i).getOrder()))
-                    .findFirst()
-                    .orElse(-1);
-                // if the order was approved, change its state from approved to confirmed 
-                if (idxOrder != -1 
-                    && orders.get(idxOrder).getOrderState() == OrderWrapper.State.APPROVED) {
-                  orderWpr = orders.get(idxOrder);
+                orderWpr = orders.stream()
+                    .filter(o -> makeOrder.getOrder().equals(o.getOrder()))
+                    .findFirst().orElse(null);
+ 
+                if (orderWpr != null && orderWpr.getOrderState() == OrderWrapper.State.APPROVED) {
                   orderWpr.setOrderState(OrderWrapper.State.CONFIRMED);
                   System.out.println("\nAdded to confirmed orders. List of orders at "
                       + "the end of CollectOrderRequests is: " + orders);
@@ -550,12 +535,12 @@ public class ManufactAgent extends Agent {
       case 2:
         // Send order message to supplier if they have the components in stock
         MessageTemplate cmt = MessageTemplate.and(
-            MessageTemplate.MatchPerformative(ACLMessage.CONFIRM),
+            MessageTemplate.MatchPerformative(ACLMessage.ACCEPT_PROPOSAL),
             MessageTemplate.MatchConversationId("component-selling"));
         
         ACLMessage confMsg = myAgent.receive(cmt);
         if(confMsg != null) {
-          if(confMsg.getPerformative() == ACLMessage.CONFIRM) {
+          if(confMsg.getPerformative() == ACLMessage.ACCEPT_PROPOSAL) {
             // The supplier has the components in stock and confirmed
             System.out.println("\nThe supplier has the components in stock and confirmed! YAY! Now making request...");
             
@@ -592,8 +577,7 @@ public class ManufactAgent extends Agent {
             } catch (OntologyException oe) {
              oe.printStackTrace();
             } 
-          } else if(confMsg.getPerformative() == ACLMessage.REFUSE) {
-            System.out.println("\nThe supplier does not have the components in stock!");
+          } else {
             orderWpr.setOrderState(OrderWrapper.State.DISMISSED);
             step = 0;
           }
@@ -658,15 +642,12 @@ public class ManufactAgent extends Agent {
           .filter(o -> o.getExpectedCompsShipDate() == day)
           .count();
     }
-    
-    // TODO: keep a list of components ordered with the AID of the supplier that has to send them to us.
-    // then pop() the order from the orders we are awaiting and add it to the orders available 
+     
     @Override
     public void action() { 
       MessageTemplate mt = MessageTemplate.and(
           MessageTemplate.MatchPerformative(ACLMessage.INFORM),
           MessageTemplate.MatchConversationId("component-selling"));
-      
       
       for (OrderWrapper orderWpr : orders) {
         if (orderWpr.getExpectedCompsShipDate() != day) continue;
