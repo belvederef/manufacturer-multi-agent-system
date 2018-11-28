@@ -2,7 +2,6 @@ package napier.ac.uk;
 
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.Hashtable;
 import java.util.List;
 import java.util.Map;
 
@@ -30,12 +29,10 @@ import napier.ac.uk_ontology.ShopOntology;
 import napier.ac.uk_ontology.actions.AskSuppInfo;
 import napier.ac.uk_ontology.actions.BuyComponents;
 import napier.ac.uk_ontology.concepts.ComputerComponent;
-import napier.ac.uk_ontology.concepts.Order;
 import napier.ac.uk_ontology.predicates.SendSuppInfo;
 import napier.ac.uk_ontology.predicates.OwnsComponents;
 import napier.ac.uk_ontology.predicates.SendPayment;
 import napier.ac.uk_ontology.predicates.ShipComponents;
-import napier.ac.uk_ontology.predicates.ShipOrder;
 
 public abstract class SupplierAgent extends Agent {
   private static final long serialVersionUID = 1L;

@@ -1,8 +1,6 @@
 package napier.ac.uk.helpers;
 
 import java.util.ArrayList;
-import java.util.HashMap;
-
 import jade.core.AID;
 import napier.ac.uk_ontology.concepts.ComputerComponent;
 

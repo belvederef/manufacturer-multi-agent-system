@@ -1,7 +1,6 @@
 package napier.ac.uk;
 
 import java.util.ArrayList;
-import java.util.List;
 import java.util.Random;
 
 import jade.content.ContentElement;
@@ -46,10 +45,10 @@ public class CustomerAgent extends Agent {
   private Ontology ontology = ShopOntology.getInstance();
   
   private AID manufacturer;
-  private ArrayList<Order> currentOrders = new ArrayList<>(); // The orders that were accepted
-  private ArrayList<Order> receivedOrders = new ArrayList<>(); // The orders that were accepted
+  private ArrayList<Order> orders = new ArrayList<>(); // The orders that were accepted
   private Order order; // The order for today
   private AID tickerAgent;
+  private int day = 1;
   @Override
   protected void setup() {
     // Set up the ontology
@@ -110,19 +109,18 @@ public class CustomerAgent extends Agent {
           dailyActivity.addSubBehaviour(new CreateOrder(myAgent));
           dailyActivity.addSubBehaviour(new FindManufacturers(myAgent));
           dailyActivity.addSubBehaviour(new AskIfCanManufacture(myAgent));
-          dailyActivity.addSubBehaviour(new MakeOrderAction(myAgent));
-          
-          ArrayList<Behaviour> cyclicBehaviours = new ArrayList<>();
-          CyclicBehaviour ro = new ReceiveOrder(myAgent);
-          cyclicBehaviours.add(ro);
-          myAgent.addBehaviour(ro);
-          
-          dailyActivity.addSubBehaviour(new EndDay(myAgent, cyclicBehaviours));
+          dailyActivity.addSubBehaviour(new MakeOrderAction(myAgent));          
+          dailyActivity.addSubBehaviour(new EndDay(myAgent));
           
           // Made cyclic so we dont need to know the number of orders we are expecting for each day
           // as they could be delayed anyway
 //          myAgent.addBehaviour();           
           myAgent.addBehaviour(dailyActivity);
+          if (day == 1) {
+            // Add cyclic behaviour only once and keep it till the end. This was made cyclic
+            // as we dont know for sure when to expect the orders. They could be delayed
+            myAgent.addBehaviour(new ReceiveOrder(myAgent));
+          }
         } else {
           // Termination message to end simulation
           myAgent.doDelete();
@@ -299,7 +297,7 @@ public class CustomerAgent extends Agent {
           try {
            getContentManager().fillContent(orderMsg, request); //send the wrapper object
            send(orderMsg);
-           currentOrders.add(order); // Add this order to the list of orders we are awaiting to receive
+           orders.add(order); // Add this order to the list of orders we are awaiting to receive
           }
           catch (CodecException ce) {
            ce.printStackTrace();
@@ -327,8 +325,6 @@ public class CustomerAgent extends Agent {
   // as they could be delayed anyway
   public class ReceiveOrder extends CyclicBehaviour {
     private static final long serialVersionUID = 1L;
-    // TODO: do we need an action to transfer money to send when the order is received? Other agents
-    // can use it too
     
     public ReceiveOrder(Agent a) {
       super(a);
@@ -344,19 +340,12 @@ public class CustomerAgent extends Agent {
       if(msg != null){
         try {
           ContentElement ce = null;
-          
-          // Print out the message content in SL
-          System.out.println("\nMessage received by cust from manufac" + msg.getContent()); 
-
           ce = getContentManager().extractContent(msg);
+          
           if (ce instanceof ShipOrder) {
             ShipOrder shipOrder = (ShipOrder) ce;
             Order order = (Order) shipOrder.getOrder();
-            
-            // Extract the received component and print it
-            System.out.println("\ncustomer " + getLocalName() + " received order " + order.toString());
-//            currentOrders.remove(order); // TODO: current order is not removed. CHECK THIS: WHAT IS IT NEEDED FOR
-//            receivedOrders.add(order);
+            orders.remove(order); // Received, remove
             
             // Send payment for the received order
             ACLMessage payMsg = new ACLMessage(ACLMessage.INFORM);
@@ -372,9 +361,6 @@ public class CustomerAgent extends Agent {
             
             getContentManager().fillContent(payMsg, sendPayment);
             send(payMsg);
-
-//            System.out.println("\ncust sending " + orderWpr.getTotalCost() + " to supp");
-            
           } else {
             System.out.println("Unknown predicate " + ce.getClass().getName());
           }
@@ -394,28 +380,20 @@ public class CustomerAgent extends Agent {
 
   public class EndDay extends OneShotBehaviour {
     private static final long serialVersionUID = 1L;
-    private List<Behaviour> toRemove;
     
-    public EndDay(Agent a, List<Behaviour> toRemove) {
+    public EndDay(Agent a) {
       super(a);
-      this.toRemove = toRemove;
     }
 
     @Override
     public void action() {
-      // Inform the ticker agent and the manufacturer that we are done 
+      // Inform the ticker agent that we are done 
       ACLMessage doneMsg = new ACLMessage(ACLMessage.INFORM);
       doneMsg.setContent("done");
       doneMsg.addReceiver(tickerAgent);
       
       myAgent.send(doneMsg);
-      
-      // Remove cyclic behaviours
-      for (Behaviour b : toRemove) {
-//        myAgent.removeBehaviour(b);
-      }
-      // TODO: need to remove the cust cyclic behaviour otherwise a new one is added
-      // every day
+      day++;
     }
   }
 }

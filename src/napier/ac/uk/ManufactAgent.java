@@ -2,7 +2,6 @@ package napier.ac.uk;
 
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.Map;
 import java.util.Map.Entry;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.IntStream;
@@ -33,16 +32,8 @@ import napier.ac.uk_ontology.ShopOntology;
 import napier.ac.uk_ontology.actions.AskSuppInfo;
 import napier.ac.uk_ontology.actions.BuyComponents;
 import napier.ac.uk_ontology.actions.MakeOrder;
-import napier.ac.uk_ontology.computerComponents.CpuDesktop;
-import napier.ac.uk_ontology.computerComponents.CpuLaptop;
-import napier.ac.uk_ontology.computerComponents.HardDrive;
-import napier.ac.uk_ontology.computerComponents.MotherboardDesktop;
-import napier.ac.uk_ontology.computerComponents.MotherboardLaptop;
 import napier.ac.uk_ontology.computerComponents.OsLinux;
 import napier.ac.uk_ontology.computerComponents.OsWindows;
-import napier.ac.uk_ontology.computerComponents.Ram;
-import napier.ac.uk_ontology.computerComponents.Screen;
-import napier.ac.uk_ontology.concepts.Computer;
 import napier.ac.uk_ontology.concepts.ComputerComponent;
 import napier.ac.uk_ontology.concepts.Order;
 import napier.ac.uk_ontology.predicates.CanManufacture;
@@ -74,32 +65,7 @@ public class ManufactAgent extends Agent {
   private double lastSevenDayCosts=0;
   
   @Override
-  protected void setup() {
-    // Testing
-//    ComputerComponent CpuL = new CpuLaptop();
-//    ComputerComponent CpuD = new CpuDesktop();
-//    ComputerComponent MotherboardD = new MotherboardDesktop();
-//    ComputerComponent MotherboardL = new MotherboardLaptop();
-//    ComputerComponent Ram1 = new Ram("8GB");
-//    ComputerComponent Ram2 = new Ram("16GB");
-//    ComputerComponent HardD1 = new HardDrive("1TB");
-//    ComputerComponent HardD2 = new HardDrive("2TB");
-//    ComputerComponent Screen = new Screen();
-//    ComputerComponent OsW = new OsWindows();
-//    ComputerComponent OsL = new OsLinux();
-//    warehouse.put(CpuL, 9000000);
-//    warehouse.put(CpuD, 9000000);
-//    warehouse.put(MotherboardD, 9000000);
-//    warehouse.put(MotherboardL, 9000000);
-//    warehouse.put(Ram1 , 9000000);
-//    warehouse.put(Ram2 , 9000000);
-//    warehouse.put(HardD1, 9000000);
-//    warehouse.put(HardD2, 9000000);
-//    warehouse.put(Screen , 9000000);
-//    warehouse.put(OsW, 9000000);
-//    warehouse.put(OsL, 9000000);
-    
-    
+  protected void setup() {    
     getContentManager().registerLanguage(codec);
     getContentManager().registerOntology(ontology);
     
@@ -484,11 +450,6 @@ public class ManufactAgent extends Agent {
 
     @Override
     public boolean done() {
-      // TODO: dev only
-      if (repliesSent == customers.size()) {
-        System.out.println("OrderReplyBehaviour is done. done is true");  
-      }
-      
       return repliesSent == customers.size();
     }
   }
