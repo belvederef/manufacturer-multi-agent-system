@@ -77,5 +77,10 @@ for a supplier to ship the components, it was theorised that to reduce the messa
 from the supplier we could just ask the supplier once for its description, which in fact contains
 their list of prices and the time it takes for delivery. This info is then passed to the manuf via an
 INFORM message.
+
+The use of a contract net using CPFs was deemed not necessary since, for example, the customers do
+not need an offer back. In the system there is only one manufacturer and it either takes out the 
+order at the agreed price or it doesnt. The manufacturer does not send a counter offer back to the 
+customers.
 	
 	
