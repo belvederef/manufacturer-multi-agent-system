@@ -21,7 +21,6 @@ public abstract class Computer implements Concept {
   private Cpu cpu;
   private Motherboard motherboard;
   private Screen screen;
-  private ArrayList<ComputerComponent> componentList;
 
   @Slot (mandatory = true)
   public Ram getRam() {
@@ -68,7 +67,7 @@ public abstract class Computer implements Concept {
   }
   @Slot (mandatory = false)
   public ArrayList<ComputerComponent> getComponentList() {
-    componentList = new ArrayList<>();
+    ArrayList<ComputerComponent> componentList = new ArrayList<>();
     componentList.add(ram);
     componentList.add(hardDrive);
     componentList.add(os);

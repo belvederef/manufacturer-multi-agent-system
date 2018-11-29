@@ -108,7 +108,7 @@ public class CustomerAgent extends Agent {
           // Sub-behaviours will execute in the order they are added
           dailyActivity.addSubBehaviour(new CreateOrder(myAgent));
           dailyActivity.addSubBehaviour(new FindManufacturers(myAgent));
-          dailyActivity.addSubBehaviour(new AskIfWillManufacture(myAgent));
+          dailyActivity.addSubBehaviour(new AskIfCanManufacture(myAgent));
           dailyActivity.addSubBehaviour(new MakeOrderAction(myAgent));          
           dailyActivity.addSubBehaviour(new EndDay(myAgent));
           
@@ -213,16 +213,17 @@ public class CustomerAgent extends Agent {
     }
   }
 
-  public class AskIfWillManufacture extends OneShotBehaviour {
+  public class AskIfCanManufacture extends OneShotBehaviour {
     private static final long serialVersionUID = 1L;
 
-    public AskIfWillManufacture(Agent a) {
+    public AskIfCanManufacture(Agent a) {
       super(a);
     }
 
     @Override
     public void action() {
-      // Prepare the Query-IF message. Asks the manufacturer to if they will accept the order
+      // Prepare the Query-IF message. Asks the manufacturer to if they can
+      // manufacture the order 
       ACLMessage msg = new ACLMessage(ACLMessage.QUERY_IF);
       msg.setLanguage(codec.getName());
       msg.setOntology(ontology.getName()); 
@@ -265,15 +266,15 @@ public class CustomerAgent extends Agent {
       MessageTemplate mt = MessageTemplate.and(
           MessageTemplate.MatchConversationId("customer-order-reply"),
           MessageTemplate.or(
-              MessageTemplate.MatchPerformative(ACLMessage.ACCEPT_PROPOSAL),
-              MessageTemplate.MatchPerformative(ACLMessage.REJECT_PROPOSAL)));
+              MessageTemplate.MatchPerformative(ACLMessage.CONFIRM),
+              MessageTemplate.MatchPerformative(ACLMessage.DISCONFIRM)));
 
       
       ACLMessage msg = myAgent.receive(mt);
       System.out.println("\nmsg received in MakeOrderAction is: " + msg);
       if(msg != null) {
         replyReceived = true;
-        if(msg.getPerformative() == ACLMessage.ACCEPT_PROPOSAL) {
+        if(msg.getPerformative() == ACLMessage.CONFIRM) {
           // The order was accepted
           System.out.println("\nThe order was accepted! YAY! Now making request...");
           

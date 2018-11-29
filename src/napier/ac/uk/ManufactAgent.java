@@ -391,10 +391,10 @@ public class ManufactAgent extends Agent {
               orders.add(orderWpr); 
               
               // The order is profitable, accept
-              reply.setPerformative(ACLMessage.ACCEPT_PROPOSAL);
+              reply.setPerformative(ACLMessage.CONFIRM);
             } else {
               // The order is not profitable enough, decline
-              reply.setPerformative(ACLMessage.REJECT_PROPOSAL);
+              reply.setPerformative(ACLMessage.DISCONFIRM);
             }
             
             reply.setConversationId("customer-order-reply");
@@ -510,12 +510,12 @@ public class ManufactAgent extends Agent {
       case 2:
         // Send order message to supplier if they have the components in stock
         MessageTemplate cmt = MessageTemplate.and(
-            MessageTemplate.MatchPerformative(ACLMessage.ACCEPT_PROPOSAL),
+            MessageTemplate.MatchPerformative(ACLMessage.CONFIRM),
             MessageTemplate.MatchConversationId("component-selling-reply"));
         
         ACLMessage confMsg = myAgent.receive(cmt);
         if(confMsg != null) {
-          if(confMsg.getPerformative() == ACLMessage.ACCEPT_PROPOSAL) {
+          if(confMsg.getPerformative() == ACLMessage.CONFIRM) {
             // The supplier has the components in stock and confirmed   
             ACLMessage orderMsg = new ACLMessage(ACLMessage.REQUEST);
             orderMsg.setLanguage(codec.getName());

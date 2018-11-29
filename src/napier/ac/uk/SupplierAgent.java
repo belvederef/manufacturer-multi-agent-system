@@ -269,7 +269,7 @@ public class SupplierAgent extends Agent {
             // Skip logic, we would need to check the stock but we have unlimited stock in this example project 
             
             ACLMessage reply = msg.createReply();
-            reply.setPerformative(ACLMessage.ACCEPT_PROPOSAL);
+            reply.setPerformative(ACLMessage.CONFIRM);
             reply.setConversationId("component-selling-reply");
             myAgent.send(reply);
           } else {

@@ -69,5 +69,13 @@ times and the results could be logged.
 
 Very useful thing was to create a wrapperOrder class that, among other attributes, holds
 the state of the order.
+
+
+To find the supplier that would fulfill the order at the lowest cost, we could have used a CPF performative
+and requested the total calculated directly from the supplier, however, since we also need to know the time it takes
+for a supplier to ship the components, it was theorised that to reduce the message passing and have the same information
+from the supplier we could just ask the supplier once for its description, which in fact contains
+their list of prices and the time it takes for delivery. This info is then passed to the manuf via an
+INFORM message.
 	
 	
