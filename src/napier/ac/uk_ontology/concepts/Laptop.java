@@ -13,7 +13,6 @@ public class Laptop extends Computer {
   private CpuLaptop cpu;
   private MotherboardLaptop motherboard;
   private Screen screen;
-  private ArrayList<ComputerComponent> componentList;
   
   public Laptop() {
 	this.cpu = new CpuLaptop();
@@ -42,10 +41,10 @@ public class Laptop extends Computer {
   public void setScreen(Screen lapScreen) {
     this.screen = lapScreen;
   }
-  
-  @Slot (mandatory = false)
+
+  @Override
   public ArrayList<ComputerComponent> getComponentList() {
-    componentList = super.getComponentList();
+    ArrayList<ComputerComponent> componentList = super.getComponentList();
     componentList.add(screen);
     return componentList;
   }
@@ -58,5 +57,18 @@ public class Laptop extends Computer {
 	        + "motherboard: %s, \n\t"
 	        + "screen: %s, \n\t)",
 	        cpu, motherboard, screen);
+  }
+  
+  @Override
+  public boolean equals(Object other) {
+      if (!(other instanceof Laptop)) {
+          return false;
+      }
+
+      Laptop that = (Laptop) other;
+      
+      // Custom equality check here.
+      return super.equals(that)
+          && this.screen.equals(that.screen);
   }
 }

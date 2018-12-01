@@ -10,7 +10,6 @@ import napier.ac.uk_ontology.computerComponents.HardDrive;
 import napier.ac.uk_ontology.computerComponents.Motherboard;
 import napier.ac.uk_ontology.computerComponents.Os;
 import napier.ac.uk_ontology.computerComponents.Ram;
-import napier.ac.uk_ontology.computerComponents.Screen;
 
 public abstract class Computer implements Concept {
   private static final long serialVersionUID = 1L;
@@ -20,7 +19,6 @@ public abstract class Computer implements Concept {
   private Os os;
   private Cpu cpu;
   private Motherboard motherboard;
-  private Screen screen;
 
   @Slot (mandatory = true)
   public Ram getRam() {
@@ -58,14 +56,7 @@ public abstract class Computer implements Concept {
   public void setCpu(Cpu cpu) {
     this.cpu = cpu;
   }
-  @Slot (mandatory = false)
-  public Screen getScreen() {
-    return screen;
-  }
-  public void setScreen(Screen screen) {
-    this.screen = screen;
-  }
-  @Slot (mandatory = false)
+  
   public ArrayList<ComputerComponent> getComponentList() {
     ArrayList<ComputerComponent> componentList = new ArrayList<>();
     componentList.add(ram);
@@ -73,7 +64,6 @@ public abstract class Computer implements Concept {
     componentList.add(os);
     componentList.add(cpu);
     componentList.add(motherboard);
-    if (screen != null) componentList.add(screen);
     return componentList;
   }
   
@@ -99,12 +89,11 @@ public abstract class Computer implements Concept {
           && this.hardDrive.equals(that.hardDrive)
           && this.os.equals(that.os)
           && this.cpu.equals(that.cpu)
-          && this.motherboard.equals(that.motherboard)
-          && this.screen != null ? this.screen.equals(that.screen) : true;
+          && this.motherboard.equals(that.motherboard);
   }
   
   @Override
   public int hashCode() {
-    return Objects.hash(ram, hardDrive, os, cpu, motherboard, screen);
+    return Objects.hash(ram, hardDrive, os, cpu, motherboard);
   }
 }
