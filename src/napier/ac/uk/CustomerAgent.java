@@ -178,9 +178,9 @@ public class CustomerAgent extends Agent {
       computer.setOs(os);
       
       
+      int quantity = (int) Math.floor(1 + 50 * rand.nextFloat());
       order = new Order();
       order.setComputer(computer);
-      int quantity = (int) Math.floor(1 + 50 * rand.nextFloat());
       order.setQuantity(quantity);
       order.setPrice(quantity * (int) Math.floor(600 + 200 * rand.nextFloat()));
       order.setDueInDays((int) Math.floor(1 + 10 * rand.nextFloat()));
@@ -271,13 +271,9 @@ public class CustomerAgent extends Agent {
 
       
       ACLMessage msg = myAgent.receive(mt);
-      System.out.println("\nmsg received in MakeOrderAction is: " + msg);
       if(msg != null) {
         replyReceived = true;
         if(msg.getPerformative() == ACLMessage.CONFIRM) {
-          // The order was accepted
-          System.out.println("\nThe order was accepted! YAY! Now making request...");
-          
           // Prepare the action request message
           ACLMessage orderMsg = new ACLMessage(ACLMessage.REQUEST);
           orderMsg.setLanguage(codec.getName());
@@ -315,7 +311,6 @@ public class CustomerAgent extends Agent {
 
     @Override
     public boolean done() {
-      System.out.println("MakeOrderAction is done. replyReceived is: " + replyReceived);
       return replyReceived;
     }
   }

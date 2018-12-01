@@ -54,13 +54,13 @@ public class ManufactAgent extends Agent {
   
   private ArrayList<OrderWrapper> orders = new ArrayList<>();
   private HashMap<ComputerComponent, Integer> warehouse = new HashMap<>(); // components available to build computers, quantity
-  
-  private double dailyProfit = 0;
-  private double totalProfit = 0;
-  
+    
   private AID tickerAgent;
   private int day = 1;
-  private double lastSevenDayCosts=0;
+  
+  // These are used to print the results at the end of the day
+  private double ordersShipped = 0, lateDelivPenalty = 0, warehouseStorage = 0, 
+                 suppliesPurchased = 0, totalProfit = 0, lastSevenDayCosts=0;
   
   @Override
   protected void setup() {    
@@ -351,7 +351,7 @@ public class ManufactAgent extends Agent {
             }
             
             
-            // Pick the supplier that will grant us the best profit
+            // Pick the supplier that will grant us the highest profit
             AID bestSupplier = null;
             double maxProfit = 0, expectedProfit = 0;
             int lateDeliveryFee = 0, daysLate = 0;
@@ -364,6 +364,7 @@ public class ManufactAgent extends Agent {
               } else {
                 lateDeliveryFee = 0;
               }
+              
               expectedProfit = orderWpr.getOrder().getPrice() 
                   - supplierCosts.get(supplier.getAid())
                   - lateDeliveryFee;
@@ -537,13 +538,8 @@ public class ManufactAgent extends Agent {
               send(orderMsg);
               orderWpr.setExpectedCompsShipDate(day + 
                   suppliers.get(supplier).getDeliveryDays());               
-               
-               // calc last 7 days order costs
-               if (day >= 83) {
-                 lastSevenDayCosts += orderWpr.getTotalCost();
-               }
                               
-               step++;
+              step++;
             } catch (CodecException ce) {
              ce.printStackTrace();
             } catch (OntologyException oe) {
@@ -574,7 +570,14 @@ public class ManufactAgent extends Agent {
           getContentManager().fillContent(payMsg, sendPayment);
           send(payMsg);
           // Subtract to profit what we paid for the components
-          dailyProfit -= orderWpr.getTotalCost();
+          suppliesPurchased += orderWpr.getTotalCost();
+          
+          // Calc how much we spend in the last 7 days of the simulation for statistics.
+          // We dont get revenue for most of these.
+          if (day >= 83) {
+            lastSevenDayCosts += orderWpr.getTotalCost();
+          }
+          
           step = 0;
         } catch (CodecException ce) {
           ce.printStackTrace();
@@ -750,7 +753,7 @@ public class ManufactAgent extends Agent {
             orderWrp.setOrderState(OrderWrapper.State.PAID);
             
             // Add to daily profit
-            dailyProfit += sendPayment.getMoney();
+            ordersShipped += sendPayment.getMoney();
           } else {
             System.out.println("Unknown predicate " + ce.getClass().getName());
           }
@@ -785,27 +788,38 @@ public class ManufactAgent extends Agent {
         
         // Calc and subtract penalty for late delivery
         if (orderWpr.getExactDayDue() < day) {
-          dailyProfit -= 50;
+          lateDelivPenalty += 50;
         }
       }
       
-      // Storage fee
+      // Calc storage fee
       for (ComputerComponent comp : warehouse.keySet()) {
         double loss = warehouse.get(comp) * 5;
-        dailyProfit -= loss;
+        warehouseStorage += loss;
       }
       
-      // Once calculation is done, remove the orders flagged as paid (completed)
+      // Once calculations are done, remove the orders flagged as paid (completed)
       orders.removeIf(o -> o.getOrderState() == OrderWrapper.State.PAID); 
       
       // Add to the total profit
-      totalProfit += dailyProfit;
-      
-      System.out.println("\nToday's profit was: " + dailyProfit);
-      System.out.println("Total profit is: " + totalProfit);
-      System.out.println("lastSevenDayCosts: " + lastSevenDayCosts);
+      totalProfit += ordersShipped 
+          - lateDelivPenalty
+          - warehouseStorage
+          - suppliesPurchased;
             
-      // Inform the ticker agent and the manufacturer that we are done 
+      System.out.printf("\nDay %d, Orders shipped = £%.2f, Penalty for late orders = £%.2f,"
+          + " Warehouse Storage = £%.2f, Supplies Purchased = £%.2f, Cumulative profit = £%.2f", 
+          day, ordersShipped, lateDelivPenalty, warehouseStorage, suppliesPurchased, totalProfit);
+      
+//    System.out.println("lastSevenDayCosts: " + lastSevenDayCosts);
+            
+      // Reset variables
+      ordersShipped = 0; 
+      lateDelivPenalty = 0; 
+      warehouseStorage = 0; 
+      suppliesPurchased = 0;
+      
+      // Inform the ticker agent and the supplier that we are done 
       ACLMessage doneMsg = new ACLMessage(ACLMessage.INFORM);
       doneMsg.setContent("done");
       doneMsg.addReceiver(tickerAgent);
@@ -815,7 +829,6 @@ public class ManufactAgent extends Agent {
       
       myAgent.send(doneMsg);
       day++;
-      dailyProfit = 0;
     }
   }
 }

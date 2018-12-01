@@ -56,8 +56,6 @@ public class SupplierAgent extends Agent {
   @Override
   @SuppressWarnings("unchecked")
   protected void setup() {
-    System.out.println("Created supplier " + getLocalName());
-
     getContentManager().registerLanguage(codec);
     getContentManager().registerOntology(ontology);
 
@@ -189,13 +187,11 @@ public class SupplierAgent extends Agent {
       if (msg != null) {
         try {
           ContentElement ce = null;
-          System.out.println("\nmsg received in ReplySuppInfo is: " + msg.getContent()); // print out the message
-                                                                                         // content in SL
           ce = getContentManager().extractContent(msg);
+          
           if (ce instanceof Action) {
             Concept action = ((Action)ce).getAction();
-            if (action instanceof AskSuppInfo) {
-              
+            if (action instanceof AskSuppInfo) {    
               // Sends supp details to manufacturer in INFORM message
               ACLMessage reply = msg.createReply(); 
               reply.setPerformative(ACLMessage.INFORM);
@@ -221,8 +217,6 @@ public class SupplierAgent extends Agent {
               // Fill content
               getContentManager().fillContent(reply, sendSuppInfo);
               send(reply);
-             
-              System.out.println("\nSending response to the manufacturer with price list.");
             }
           }
         }
@@ -255,7 +249,6 @@ public class SupplierAgent extends Agent {
       ACLMessage msg = myAgent.receive(mt);
       
       if (msg != null) {
-        System.out.println("In supplier offerserver. msg: " + msg);
         try {
           ContentElement ce = null;
           ce = getContentManager().extractContent(msg);

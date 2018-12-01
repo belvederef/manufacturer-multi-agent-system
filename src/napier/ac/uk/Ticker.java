@@ -113,7 +113,6 @@ public class Ticker extends Agent {
 				MessageTemplate mt = MessageTemplate.MatchContent("done");
 				ACLMessage msg = myAgent.receive(mt);
 				if(msg != null) {
-				  System.out.println("\nDone message received by " + msg.getSender());
 					numFinReceived++;
 					if(numFinReceived >= simulationAgents.size()) {
 						step++;
@@ -140,7 +139,6 @@ public class Ticker extends Agent {
 
 		@Override
 		public int onEnd() {
-			System.out.println("\n\n\nEnd of day " + day + "\n\n\n");
 			if(day == NUM_DAYS) {
 				//send termination message to each agent
 				ACLMessage msg = new ACLMessage(ACLMessage.INFORM);
