@@ -70,6 +70,9 @@ public class CustomerAgent extends Agent {
     }
     
     addBehaviour(new TickerWaiter(this));
+    // Add cyclic behaviour only once and keep it till the end. This was made cyclic
+    // as we dont know for sure when to expect the orders. They could be delayed
+    addBehaviour(new ReceiveOrder(this));
   }
 
 
@@ -111,16 +114,8 @@ public class CustomerAgent extends Agent {
           dailyActivity.addSubBehaviour(new AskIfCanManufacture(myAgent));
           dailyActivity.addSubBehaviour(new MakeOrderAction(myAgent));          
           dailyActivity.addSubBehaviour(new EndDay(myAgent));
-          
-          // Made cyclic so we dont need to know the number of orders we are expecting for each day
-          // as they could be delayed anyway
-//          myAgent.addBehaviour();           
+                 
           myAgent.addBehaviour(dailyActivity);
-          if (day == 1) {
-            // Add cyclic behaviour only once and keep it till the end. This was made cyclic
-            // as we dont know for sure when to expect the orders. They could be delayed
-            myAgent.addBehaviour(new ReceiveOrder(myAgent));
-          }
         } else {
           // Termination message to end simulation
           myAgent.doDelete();
