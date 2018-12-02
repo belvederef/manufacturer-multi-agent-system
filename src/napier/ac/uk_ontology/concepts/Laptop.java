@@ -71,4 +71,13 @@ public class Laptop extends Computer {
       return super.equals(that)
           && this.screen.equals(that.screen);
   }
+  
+  @Override
+  public int hashCode() {
+    int hash = super.hashCode();
+    hash = 31 * hash + ((cpu == null) ? 0 : cpu.hashCode());
+    hash = 31 * hash + ((motherboard == null) ? 0 : motherboard.hashCode());
+    hash = 31 * hash + ((screen == null) ? 0 : screen.hashCode());
+    return hash;
+  }
 }
