@@ -9,7 +9,7 @@ public class Order implements Concept {
   private static final long serialVersionUID = 1L;
   
   private int orderId = -1; // This is set by the manufacturer
-  private Computer computer; // All are the same computer, so list probably not needed. If list, use @AggregateSlot(cardMin = 1)
+  private Computer computer;
   private int quantity;
   private double price;
   private int dueInDays;

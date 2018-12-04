@@ -41,7 +41,6 @@ public abstract class Computer implements Concept {
   public void setOs(Os os) {
     this.os = os;
   }
-  
   @Slot (mandatory = true)
   public Motherboard getMotherboard() {
     return motherboard;

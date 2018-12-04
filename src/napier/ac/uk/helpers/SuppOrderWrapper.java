@@ -5,7 +5,6 @@ import jade.core.AID;
 import napier.ac.uk_ontology.concepts.ComputerComponent;
 
 public class SuppOrderWrapper {
-
   private AID buyer;
   private int deliveryDay;
   private ArrayList <ComputerComponent> components;

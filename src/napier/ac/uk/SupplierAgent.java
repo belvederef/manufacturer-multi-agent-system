@@ -24,8 +24,6 @@ import jade.domain.FIPAAgentManagement.DFAgentDescription;
 import jade.domain.FIPAAgentManagement.ServiceDescription;
 import jade.lang.acl.ACLMessage;
 import jade.lang.acl.MessageTemplate;
-import napier.ac.uk.SupplierAgent.TickerWaiter;
-import napier.ac.uk.helpers.OrderWrapper;
 import napier.ac.uk.helpers.SuppOrderWrapper;
 import napier.ac.uk_ontology.ShopOntology;
 import napier.ac.uk_ontology.actions.AskSuppInfo;
