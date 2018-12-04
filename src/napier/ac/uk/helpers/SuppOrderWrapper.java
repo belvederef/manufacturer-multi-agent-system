@@ -6,6 +6,7 @@ import napier.ac.uk_ontology.concepts.ComputerComponent;
 
 public class SuppOrderWrapper {
   private AID buyer;
+  private int orderId;
   private int deliveryDay;
   private ArrayList <ComputerComponent> components;
   private int quantity;
@@ -15,6 +16,12 @@ public class SuppOrderWrapper {
   }
   public void setBuyer(AID buyer) {
     this.buyer = buyer;
+  }
+  public int getOrderId() {
+    return orderId;
+  }
+  public void setOrderId(int orderId) {
+    this.orderId = orderId;
   }
   public int getDeliveryDay() {
     return deliveryDay;

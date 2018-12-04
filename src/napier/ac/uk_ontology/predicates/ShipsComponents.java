@@ -11,6 +11,7 @@ public class ShipsComponents implements Predicate {
   private static final long serialVersionUID = 1L;
   
   private AID seller;
+  private int orderId;
   private ArrayList<ComputerComponent> components;
   private int quantity;
   
@@ -20,6 +21,13 @@ public class ShipsComponents implements Predicate {
   }
   public void setSeller(AID seller) {
     this.seller = seller;
+  }
+  @Slot(mandatory = true)
+  public int getOrderId() {
+    return orderId;
+  }
+  public void setOrderId(int orderId) {
+    this.orderId = orderId;
   }
   @Slot(mandatory = true)
   public ArrayList<ComputerComponent> getComponents() {

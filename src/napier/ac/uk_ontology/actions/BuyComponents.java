@@ -11,6 +11,7 @@ public class BuyComponents implements AgentAction {
   private static final long serialVersionUID = 1L;
   
   private AID buyer;
+  private int orderId;
   private ArrayList<ComputerComponent> components;
   private int quantity;
   
@@ -20,6 +21,13 @@ public class BuyComponents implements AgentAction {
   }
   public void setBuyer(AID buyer) {
     this.buyer = buyer;
+  }
+  @Slot(mandatory = true)
+  public int getOrderId() {
+    return orderId;
+  }
+  public void setOrderId(int orderId) {
+    this.orderId = orderId;
   }
   @Slot(mandatory = true)
   public ArrayList<ComputerComponent> getComponents() {

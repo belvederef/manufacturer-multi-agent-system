@@ -78,7 +78,6 @@ public class SupplierAgent extends Agent {
     suppDeliveryDays = (int) args[1];
     }
     
-    
     addBehaviour(new TickerWaiter(this));
   }
 
@@ -231,7 +230,7 @@ public class SupplierAgent extends Agent {
     }
   }
   
-  // Replies wether the supplier owns the number of components asked
+  // Replies whether the supplier owns the number of components asked
   public class OffersServer extends CyclicBehaviour {
     private static final long serialVersionUID = 1L;
 
@@ -311,6 +310,7 @@ public class SupplierAgent extends Agent {
               order.setDeliveryDay(day + suppDeliveryDays);
               order.setComponents(compList);
               order.setQuantity(quantity);
+              order.setOrderId(orderedComponents.getOrderId());
               orders.add(order); // Add to total list of orders
             } else {
             System.out.println("Unknown predicate " + ce.getClass().getName());
@@ -350,6 +350,7 @@ public class SupplierAgent extends Agent {
         shipComponents.setSeller(myAgent.getAID());
         shipComponents.setComponents(order.getComponents());
         shipComponents.setQuantity(order.getQuantity());
+        shipComponents.setOrderId(order.getOrderId());
         
         try {
           getContentManager().fillContent(msg, shipComponents);

@@ -2,8 +2,10 @@ package napier.ac.uk;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map.Entry;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Collectors;
 
 import jade.content.Concept;
 import jade.content.ContentElement;
@@ -524,6 +526,7 @@ public class ManufactAgent extends Agent {
             
             try {            
               BuyComponents buyComponents = new BuyComponents();
+              buyComponents.setOrderId(orderWpr.getOrder().getOrderId());
               buyComponents.setBuyer(myAgent.getAID());
               buyComponents.setComponents(orderWpr.getOrder().getComputer().getComponentList());
               buyComponents.setQuantity(orderWpr.getOrder().getQuantity());
@@ -601,14 +604,14 @@ public class ManufactAgent extends Agent {
   // Receive the components that we are awaiting from the supplier
   public class ReceiveComponents extends Behaviour { 
     private static final long serialVersionUID = 1L;
-    private int orderCompsExpected = 0;
+    private List<OrderWrapper> ordersIncoming;
     private int orderCompsReceived = 0;
     
     public ReceiveComponents(Agent a) {
       super(a);
-      orderCompsExpected = (int) orders.stream()
+      ordersIncoming = orders.stream()
           .filter(o -> o.getExpectedCompsShipDate() == day)
-          .count();
+          .collect(Collectors.toList());
     }
      
     @Override
@@ -617,49 +620,51 @@ public class ManufactAgent extends Agent {
           MessageTemplate.MatchPerformative(ACLMessage.INFORM),
           MessageTemplate.MatchConversationId("component-selling-send"));
       
-      for (OrderWrapper orderWpr : orders) {
-        if (orderWpr.getExpectedCompsShipDate() != day) continue;
-      
-        ACLMessage msg = receive(mt);
-        if(msg != null){
-          try {
-            ContentElement ce = null;
-            ce = getContentManager().extractContent(msg);
+      ACLMessage msg = receive(mt);
+      if(msg != null){
+        try {
+          ContentElement ce = null;
+          ce = getContentManager().extractContent(msg);
+          
+          if (ce instanceof ShipsComponents) {
+            ShipsComponents shipComponents = (ShipsComponents) ce;
+            ArrayList<ComputerComponent> compList = shipComponents.getComponents();
+            int quantity = shipComponents.getQuantity();
+            int orderId = shipComponents.getOrderId();
             
-            if (ce instanceof ShipsComponents) {
-              ShipsComponents shipComponents = (ShipsComponents) ce;
-              ArrayList<ComputerComponent> compList = shipComponents.getComponents();
-              int quantity = shipComponents.getQuantity();
-              
-              // The components received get added to the warehouse
-              for (ComputerComponent comp : compList) {
-                if (warehouse.get(comp) == null) {
-                  warehouse.put(comp, quantity);
-                } else {
-                  warehouse.put(comp, warehouse.get(comp) + quantity);
-                }
+            // The components received get added to the warehouse
+            for (ComputerComponent comp : compList) {
+              if (warehouse.get(comp) == null) {
+                warehouse.put(comp, quantity);
+              } else {
+                warehouse.put(comp, warehouse.get(comp) + quantity);
               }
-              
-              orderCompsReceived++;
-            } else {
-              System.out.println("Unknown predicate " + ce.getClass().getName());
             }
+            
+            OrderWrapper order = orders.stream()
+              .filter(o -> o.getOrder().getOrderId() == orderId)
+              .findFirst().orElse(null);
+            order.setOrderState(OrderWrapper.State.RECEIVED_COMPS);
+            
+            orderCompsReceived++;
+          } else {
+            System.out.println("Unknown predicate " + ce.getClass().getName());
           }
-          catch (CodecException ce) {
-            ce.printStackTrace();
-          }
-          catch (OntologyException oe) {
-            oe.printStackTrace();
-          }
-        } else {
-          block();
         }
+        catch (CodecException ce) {
+          ce.printStackTrace();
+        }
+        catch (OntologyException oe) {
+          oe.printStackTrace();
+        }
+      } else if (ordersIncoming.size() > 0){
+        block();
       }
     }
     
     @Override
     public boolean done() {      
-      return orderCompsExpected == orderCompsReceived;
+      return orderCompsReceived == ordersIncoming.size();
     }
   }
   
@@ -679,7 +684,7 @@ public class ManufactAgent extends Agent {
       case 0:
         // For each order, if there are enough components, manufacture and send to customer
         for (OrderWrapper orderWpr : orders) {
-          if (orderWpr.getOrderState() != OrderWrapper.State.CONFIRMED) continue;
+          if (orderWpr.getOrderState() != OrderWrapper.State.RECEIVED_COMPS) continue;
           
           Boolean allCompsAvailable = true;
           for (ComputerComponent comp : orderWpr.getOrder().getComputer().getComponentList()) {
