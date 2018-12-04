@@ -122,7 +122,6 @@ public class ManufactAgent extends Agent {
           dailyActivity.addSubBehaviour(new ManageOrderRequests(myAgent));
           dailyActivity.addSubBehaviour(new ReceiveComponents(myAgent));
           dailyActivity.addSubBehaviour(new ManufactureAndSend(myAgent));
-          dailyActivity.addSubBehaviour(new ReceivePayment(myAgent));
           dailyActivity.addSubBehaviour(new EndDay(myAgent));
           
           myAgent.addBehaviour(dailyActivity);
@@ -665,8 +664,10 @@ public class ManufactAgent extends Agent {
   }
   
   
-  public class ManufactureAndSend extends OneShotBehaviour {
+  public class ManufactureAndSend extends Behaviour {
     private static final long serialVersionUID = 1L;
+    private int step = 0;
+    private int paymentsToReceive = 0;
 
     public ManufactureAndSend(Agent a) {
       super(a);
@@ -674,103 +675,95 @@ public class ManufactAgent extends Agent {
 
     @Override
     public void action() {
-      // For each order, if there are enough components, manufacture and send to customer
-      for (OrderWrapper orderWpr : orders) {
-        if (orderWpr.getOrderState() != OrderWrapper.State.CONFIRMED) continue;
-        
-        Boolean allCompsAvailable = true;
-        for (ComputerComponent comp : orderWpr.getOrder().getComputer().getComponentList()) {
-          if(!warehouse.containsKey(comp) || 
-              (warehouse.containsKey(comp) &&
-               warehouse.get(comp) < orderWpr.getOrder().getQuantity())) {
-            allCompsAvailable = false;
-            break;
-          }
-        }
-        if (!allCompsAvailable) continue;
-        
-        ACLMessage msg = new ACLMessage(ACLMessage.INFORM);
-        msg.setLanguage(codec.getName());
-        msg.setOntology(ontology.getName()); 
-        msg.setConversationId("customer-order-send");
-        msg.addReceiver(orderWpr.getCustomer());
-        
-        ShipsOrder shipOrder = new ShipsOrder();
-        shipOrder.setSender(myAgent.getAID());
-        shipOrder.setOrder(orderWpr.getOrder());
-        
-        try {
-          getContentManager().fillContent(msg, shipOrder);
-          send(msg);
-          orderWpr.setOrderState(OrderWrapper.State.AWAITING_PAYMENT);
+      switch(step) {
+      case 0:
+        // For each order, if there are enough components, manufacture and send to customer
+        for (OrderWrapper orderWpr : orders) {
+          if (orderWpr.getOrderState() != OrderWrapper.State.CONFIRMED) continue;
           
-          // Remove used components from warehouse 
+          Boolean allCompsAvailable = true;
           for (ComputerComponent comp : orderWpr.getOrder().getComputer().getComponentList()) {
-           warehouse.put(comp, warehouse.get(comp) - orderWpr.getOrder().getQuantity());
+            if(!warehouse.containsKey(comp) || 
+                (warehouse.containsKey(comp) &&
+                 warehouse.get(comp) < orderWpr.getOrder().getQuantity())) {
+              allCompsAvailable = false;
+              break;
+            }
           }
-         } catch (CodecException ce) {
-          ce.printStackTrace();
-         } catch (OntologyException oe) {
-          oe.printStackTrace();
-         } 
-      }
-    }
-  }
-  
-  
-  public class ReceivePayment extends Behaviour {
-    private static final long serialVersionUID = 1L;
-    private int numPaymentsLeft = 0;
-    
-    public ReceivePayment(Agent a) {
-      super(a);
-    }
-    
-    @Override
-    public void action() {
-      MessageTemplate mt = MessageTemplate.and(
-          MessageTemplate.MatchPerformative(ACLMessage.INFORM),
-          MessageTemplate.MatchConversationId("payment"));
-      ACLMessage msg = receive(mt);
-      
-      numPaymentsLeft = (int) orders.stream()
-          .filter(o -> o.getOrderState() == OrderWrapper.State.AWAITING_PAYMENT)
-          .count(); 
-      
-      if(msg != null){
-        try {
-          ContentElement ce = null;
-          ce = getContentManager().extractContent(msg);
+          if (!allCompsAvailable) continue;
           
-          if (ce instanceof SendsPayment) {
-            SendsPayment sendPayment = (SendsPayment) ce;
-
-            OrderWrapper orderWrp = orders.stream()
-              .filter(o -> o.getOrder().getOrderId() == sendPayment.getOrderId())
-              .findFirst().orElse(null);
-            orderWrp.setOrderState(OrderWrapper.State.PAID);
+          ACLMessage msg = new ACLMessage(ACLMessage.INFORM);
+          msg.setLanguage(codec.getName());
+          msg.setOntology(ontology.getName()); 
+          msg.setConversationId("customer-order-send");
+          msg.addReceiver(orderWpr.getCustomer());
+          
+          ShipsOrder shipOrder = new ShipsOrder();
+          shipOrder.setSender(myAgent.getAID());
+          shipOrder.setOrder(orderWpr.getOrder());
+          
+          try {
+            getContentManager().fillContent(msg, shipOrder);
+            send(msg);
+            orderWpr.setOrderState(OrderWrapper.State.AWAITING_PAYMENT);
+            paymentsToReceive++;
             
-            // Add to daily profit
-            ordersShipped += sendPayment.getMoney();
-          } else {
-            System.out.println("Unknown predicate " + ce.getClass().getName());
-          }
-        } catch (CodecException ce) {
-          ce.printStackTrace();
-        } catch (OntologyException oe) {
-          oe.printStackTrace();
+            // Remove used components from warehouse 
+            for (ComputerComponent comp : orderWpr.getOrder().getComputer().getComponentList()) {
+             warehouse.put(comp, warehouse.get(comp) - orderWpr.getOrder().getQuantity());
+            }
+           } catch (CodecException ce) {
+            ce.printStackTrace();
+           } catch (OntologyException oe) {
+            oe.printStackTrace();
+           } 
         }
-      } else if (numPaymentsLeft > 0){
-        block();
+        step++;
+        break;
+        
+      case 1:
+        MessageTemplate mt = MessageTemplate.and(
+            MessageTemplate.MatchPerformative(ACLMessage.INFORM),
+            MessageTemplate.MatchConversationId("payment"));
+        ACLMessage msg = receive(mt);
+                
+        if(msg != null){
+          try {
+            ContentElement ce = null;
+            ce = getContentManager().extractContent(msg);
+            
+            if (ce instanceof SendsPayment) {
+              SendsPayment sendPayment = (SendsPayment) ce;
+
+              OrderWrapper orderWrp = orders.stream()
+                .filter(o -> o.getOrder().getOrderId() == sendPayment.getOrderId())
+                .findFirst().orElse(null);
+              orderWrp.setOrderState(OrderWrapper.State.PAID);
+              
+              // Add to daily profit
+              ordersShipped += sendPayment.getMoney();
+              paymentsToReceive--;
+            } else {
+              System.out.println("Unknown predicate " + ce.getClass().getName());
+            }
+          } catch (CodecException ce) {
+            ce.printStackTrace();
+          } catch (OntologyException oe) {
+            oe.printStackTrace();
+          }
+        } else {
+          block();
+        }
+        break;
       }
     }
-    
+
     @Override
     public boolean done() {
-      // Loop until there are no payments left to be received
-      return numPaymentsLeft == 0;
+      return paymentsToReceive == 0;
     }
   }
+  
   
   public class EndDay extends OneShotBehaviour {
     private static final long serialVersionUID = 1L;
