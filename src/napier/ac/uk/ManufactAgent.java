@@ -119,7 +119,7 @@ public class ManufactAgent extends Agent {
           dailyActivity.addSubBehaviour(new FindSuppliers(myAgent));
           dailyActivity.addSubBehaviour(new GetInfoFromSuppliers(myAgent));
           dailyActivity.addSubBehaviour(new OrderReplyBehaviour(myAgent));
-          dailyActivity.addSubBehaviour(new CollectOrderRequests(myAgent));
+          dailyActivity.addSubBehaviour(new ManageOrderRequests(myAgent));
           dailyActivity.addSubBehaviour(new ReceiveComponents(myAgent));
           dailyActivity.addSubBehaviour(new ManufactureAndSend(myAgent));
           dailyActivity.addSubBehaviour(new ReceivePayment(myAgent));
@@ -423,13 +423,13 @@ public class ManufactAgent extends Agent {
   
   
   // This behaviour accepts the requests for the orders approved in the previous query_if
-  public class CollectOrderRequests extends Behaviour{
+  public class ManageOrderRequests extends Behaviour{
     private static final long serialVersionUID = 1L;
     private OrderWrapper orderWpr;
     private AID supplier;
     private int step = 0;
     
-    public CollectOrderRequests(Agent a) {
+    public ManageOrderRequests(Agent a) {
       super(a);
     }
     
@@ -568,7 +568,7 @@ public class ManufactAgent extends Agent {
         try {
           getContentManager().fillContent(payMsg, sendPayment);
           send(payMsg);
-          // Subtract to profit what we paid for the components
+          // add the cost that will finally be subtracted to the profit
           suppliesPurchased += orderWpr.getTotalCost();
           
           // Calc how much we spend in the last 7 days of the simulation for statistics.
@@ -721,7 +721,6 @@ public class ManufactAgent extends Agent {
   public class ReceivePayment extends Behaviour {
     private static final long serialVersionUID = 1L;
     private int numPaymentsLeft = 0;
-    private OrderWrapper orderWrp;
     
     public ReceivePayment(Agent a) {
       super(a);
@@ -746,7 +745,7 @@ public class ManufactAgent extends Agent {
           if (ce instanceof SendsPayment) {
             SendsPayment sendPayment = (SendsPayment) ce;
 
-            orderWrp = orders.stream()
+            OrderWrapper orderWrp = orders.stream()
               .filter(o -> o.getOrder().getOrderId() == sendPayment.getOrderId())
               .findFirst().orElse(null);
             orderWrp.setOrderState(OrderWrapper.State.PAID);
@@ -782,11 +781,9 @@ public class ManufactAgent extends Agent {
 
     @Override
     public void action() {
-      for (OrderWrapper orderWpr : orders) {
-        // Note: the money paid to the supplier are subtracted where these orders are made 
-        
+      for (OrderWrapper orderWpr : orders) { 
         // Calc and subtract penalty for late delivery
-        if (orderWpr.getExactDayDue() < day) {
+        if (orderWpr.getExactDayDue() <= day) {
           lateDelivPenalty += 50;
         }
       }
@@ -796,6 +793,9 @@ public class ManufactAgent extends Agent {
         double loss = warehouse.get(comp) * 5;
         warehouseStorage += loss;
       }
+      
+      // Note: the money paid to the supplier and received from customers
+      // are added where these tasks are performed
       
       // Once calculations are done, remove the orders flagged as paid (completed)
       orders.removeIf(o -> o.getOrderState() == OrderWrapper.State.PAID); 

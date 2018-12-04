@@ -311,7 +311,7 @@ public class CustomerAgent extends Agent {
   }
   
   // Made cyclic so we dont need to know the number of orders we are expecting for each day
-  // as they could be delayed anyway
+  // as they could be delayed
   public class ReceiveOrder extends CyclicBehaviour {
     private static final long serialVersionUID = 1L;
     
