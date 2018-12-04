@@ -644,7 +644,7 @@ public class ManufactAgent extends Agent {
             OrderWrapper order = orders.stream()
               .filter(o -> o.getOrder().getOrderId() == orderId)
               .findFirst().orElse(null);
-            order.setOrderState(OrderWrapper.State.RECEIVED_COMPS);
+            order.setOrderState(OrderWrapper.State.COMPS_RECEIVED);
             
             orderCompsReceived++;
           } else {
@@ -684,7 +684,7 @@ public class ManufactAgent extends Agent {
       case 0:
         // For each order, if there are enough components, manufacture and send to customer
         for (OrderWrapper orderWpr : orders) {
-          if (orderWpr.getOrderState() != OrderWrapper.State.RECEIVED_COMPS) continue;
+          if (orderWpr.getOrderState() != OrderWrapper.State.COMPS_RECEIVED) continue;
           
           Boolean allCompsAvailable = true;
           for (ComputerComponent comp : orderWpr.getOrder().getComputer().getComponentList()) {
