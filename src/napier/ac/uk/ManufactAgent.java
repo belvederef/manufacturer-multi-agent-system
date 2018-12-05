@@ -331,32 +331,23 @@ public class ManufactAgent extends Agent {
             CanManufacture canManifacture = (CanManufacture) ce;
             Order order = canManifacture.getOrder();
             orderWpr = new OrderWrapper(order);
-            orderWpr.setCustomer(msg.getSender());
-               
-            
-            // Calc how much it would cost to fulfill the order for each supplier
-            HashMap <AID, Double> supplierCosts = new HashMap<>();
-            
-            for (Entry<AID, SupplierHelper> supplier : suppliers.entrySet()) {
-              double totCost = 0;
-              
-              for(ComputerComponent comp : orderWpr.getOrder().getComputer().getComponentList()) {
-                if (comp != null) { // Some component, like the laptop screen, can be null
-                  totCost += supplier.getValue().getPriceList().get(comp);
-                }
-              }
-              
-              totCost *= orderWpr.getOrder().getQuantity();
-              supplierCosts.put(supplier.getKey(), totCost);
-            }
-            
+            orderWpr.setCustomer(msg.getSender());            
             
             // Pick the supplier that will grant us the highest profit
             AID bestSupplier = null;
-            double maxProfit = 0, expectedProfit = 0;
+            double maxProfit = 0, expectedProfit = 0, bestSupplierCost = 0;
             int lateDeliveryFee = 0, daysLate = 0;
             
             for (SupplierHelper supplier : suppliers.values()) {
+              // Calc how much it would cost to fulfill the order for this supplier. Store in totCost
+              double totCost = 0;
+              for(ComputerComponent comp : orderWpr.getOrder().getComputer().getComponentList()) {
+                if (comp != null) { // Some component, like the laptop screen, can be null
+                  totCost += supplier.getPriceList().get(comp);
+                }
+              }
+              totCost *= orderWpr.getOrder().getQuantity();
+              
               // Calc how many days after order due date the supplier will ship components 
               daysLate = supplier.getDeliveryDays() - orderWpr.getOrder().getDueInDays();
               if (daysLate > 0) {
@@ -366,16 +357,16 @@ public class ManufactAgent extends Agent {
               }
               
               expectedProfit = orderWpr.getOrder().getPrice() 
-                  - supplierCosts.get(supplier.getAid())
+                  - totCost
                   - lateDeliveryFee;
               
-              if (bestSupplier == null && expectedProfit > 0) {
+              // Decide if this supplier is better than the others
+              if ((bestSupplier == null && expectedProfit > 0)
+                  || (expectedProfit > maxProfit)) {
                 // If there is no best supplier, get the first that grants some profit
                 bestSupplier = supplier.getAid();
                 maxProfit = expectedProfit;
-              } else if (expectedProfit > maxProfit) {
-                bestSupplier = supplier.getAid();
-                maxProfit = expectedProfit;
+                bestSupplierCost = totCost;
               }
             }
             
@@ -385,7 +376,7 @@ public class ManufactAgent extends Agent {
               // We know that the profit is positive if this runs
               // Add to list of orders that we said yes to, but not yet confirmed
               orderWpr.setSupplierAssigned(bestSupplier);
-              orderWpr.setTotalCost(supplierCosts.get(bestSupplier));
+              orderWpr.setTotalCost(bestSupplierCost);
               orderWpr.setOrderState(OrderWrapper.State.APPROVED);
               orderWpr.setOrderedDate(day);
               orderWpr.getOrder().setOrderId(orderIds.incrementAndGet());
