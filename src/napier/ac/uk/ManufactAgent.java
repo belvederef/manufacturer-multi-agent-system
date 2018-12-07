@@ -342,9 +342,7 @@ public class ManufactAgent extends Agent {
               // Calc how much it would cost to fulfill the order for this supplier. Store in totCost
               double totCost = 0;
               for(ComputerComponent comp : orderWpr.getOrder().getComputer().getComponentList()) {
-                if (comp != null) { // Some component, like the laptop screen, can be null
-                  totCost += supplier.getPriceList().get(comp);
-                }
+                totCost += supplier.getPriceList().get(comp);
               }
               totCost *= orderWpr.getOrder().getQuantity();
               
