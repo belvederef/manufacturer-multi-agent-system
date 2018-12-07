@@ -1,5 +1,11 @@
 package napier.ac.uk;
 
+import java.io.IOException;
+import java.nio.charset.Charset;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -211,6 +217,10 @@ public class ManufactAgent extends Agent {
 
     @Override
     public void action() {
+      if (day >= 83) {
+        int i = 9;
+      }
+      
       switch (step) {  
       case 0:        
         ACLMessage enquiryMsg = new ACLMessage(ACLMessage.REQUEST);
@@ -223,6 +233,7 @@ public class ManufactAgent extends Agent {
         
         Action request = new Action();
         request.setAction(askSuppInfo);
+
         
         try {
           for (AID supplier : suppliers.keySet()) {
@@ -249,6 +260,10 @@ public class ManufactAgent extends Agent {
             MessageTemplate.MatchPerformative(ACLMessage.INFORM),
             MessageTemplate.MatchConversationId("supplier-info"));
         msg = receive(mt);
+        
+        if (day >= 83) {
+          int i = 9;
+        }
         
         if(msg != null){
           try {
@@ -286,6 +301,9 @@ public class ManufactAgent extends Agent {
             oe.printStackTrace();
           }
         } else {
+          if (day >= 83) {
+            int i = 9;
+          }
           block();
         }
       }
@@ -293,6 +311,9 @@ public class ManufactAgent extends Agent {
 
     @Override
     public boolean done() {
+      if (day >= 83) {
+        int i = 9;
+      }
       return supplierListReceived == suppliers.size();
     }
   }
@@ -321,7 +342,9 @@ public class ManufactAgent extends Agent {
           MessageTemplate.MatchPerformative(ACLMessage.QUERY_IF),
           MessageTemplate.MatchConversationId("customer-order-ask"));
       ACLMessage msg = receive(mt);
-      
+      if (day >= 83) {
+        int i = 9;
+      }
       if(msg != null){
         try {
           ContentElement ce = null;
@@ -370,8 +393,14 @@ public class ManufactAgent extends Agent {
               }
             }
             
+            // CHECK IF SUPPLIER PICKED IS EVER NOT THE CHEAPEST
+            if (!bestSupplier.getLocalName().equals("supplierSlow")) {
+              System.out.println(bestSupplier.getLocalName());
+            }
+            
             // Send reply to buyer
             ACLMessage reply = msg.createReply();
+//            if (bestSupplier != null && day < 83) {
             if (bestSupplier != null) {
               // We know that the profit is positive if this runs
               // Add to list of orders that we said yes to, but not yet confirmed
@@ -381,6 +410,10 @@ public class ManufactAgent extends Agent {
               orderWpr.setOrderedDate(day);
               orderWpr.getOrder().setOrderId(orderIds.incrementAndGet());
               orders.add(orderWpr); 
+              
+              if (day >= 83) {
+                lastSevenDayCosts += orderWpr.getTotalCost();
+              }
               
               // The order is profitable, accept
               reply.setPerformative(ACLMessage.CONFIRM);
@@ -466,7 +499,7 @@ public class ManufactAgent extends Agent {
             e.printStackTrace();
           }
         } else {
-          block();
+//          block();
         }
         break;
        
@@ -542,7 +575,7 @@ public class ManufactAgent extends Agent {
             step = 0;
           }
         } else {
-          block();
+//          block();
         }
         break;
         
@@ -798,9 +831,21 @@ public class ManufactAgent extends Agent {
       System.out.printf("\nDay %d, Orders shipped = £%.2f, Penalty for late orders = £%.2f,"
           + " Warehouse Storage = £%.2f, Supplies Purchased = £%.2f, Cumulative profit = £%.2f", 
           day, ordersShipped, lateDelivPenalty, warehouseStorage, suppliesPurchased, totalProfit);
-      
+//      
 //    System.out.println("lastSevenDayCosts: " + lastSevenDayCosts);
             
+//      if (day >= 90) {
+//        try {
+//          Files.write(Paths.get("./always-cheap-strategy.txt"), 
+//              (totalProfit+"\n").getBytes(), StandardOpenOption.APPEND);
+//          System.exit(0);
+//          System.exit(0);
+//          System.exit(0);
+//        } catch (IOException e) {
+//          // TODO Auto-generated catch block
+//          e.printStackTrace();
+//        }
+//      }
       // Reset variables
       ordersShipped = 0; 
       lateDelivPenalty = 0; 

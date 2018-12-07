@@ -298,6 +298,9 @@ public class CustomerAgent extends Agent {
         } else {
           // The order was not accepted
           System.out.println("\nThe order was not accepted! Costumer " + myAgent.getLocalName() + " is done.");
+          if (day >= 83) {
+            int i = 9;
+          }
         }
       } else {
         block();
@@ -325,6 +328,10 @@ public class CustomerAgent extends Agent {
           MessageTemplate.MatchPerformative(ACLMessage.INFORM),
           MessageTemplate.MatchConversationId("customer-order-send"));
       ACLMessage msg = receive(mt);
+      
+      if (day >= 83) {
+        int i = 9;
+      }
       
       if(msg != null){
         try {

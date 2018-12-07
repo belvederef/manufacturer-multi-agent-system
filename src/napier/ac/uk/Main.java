@@ -1,5 +1,9 @@
 package napier.ac.uk;
-import jade.core.*;
+import java.io.File;
+import java.util.ArrayList;
+
+import jade.core.Profile;
+import jade.core.ProfileImpl;
 import jade.core.Runtime;
 import jade.wrapper.AgentController;
 import jade.wrapper.ContainerController;
@@ -14,8 +18,8 @@ public class Main {
 		
 		try{
 			ContainerController myContainer = myRuntime.createMainContainer(myProfile);	
-			AgentController rma = myContainer.createNewAgent("rma", "jade.tools.rma.rma", null);
-			rma.start();
+//			AgentController rma = myContainer.createNewAgent("rma", "jade.tools.rma.rma", null);
+//			rma.start();
 			
 			// Create three identica customers
 			int numCustomers = 3;
@@ -56,4 +60,5 @@ public class Main {
 			System.out.println("Exception starting agent: " + e.toString());
 		}
 	}
+	
 }
