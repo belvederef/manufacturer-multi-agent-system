@@ -2,6 +2,8 @@
 ### Disclaimer
 Coursework submitted in partial fulfillment	of the requirements for the degree of Computing. Plagiarism is not permitted and is punishable by law.
 
+However, feel free to get inspired by this project. If it helped you, star this repo to show your appreciation :)
+
 ### Background
 Manufacturing companies hardly ever handle all the processes that are behind the production of a good, which span from the extraction of raw materials through to the delivery of the final product. Instead, they are commonly part of a supply chain: they buy goods, perform some work on these, and sell them to the next customer. In other words, each company does not only act as the manufacturer, but also as the customer and the supplier. The dynamics of the enterprise market make the coordination for this type of system uncertain: materials delivery can be delayed, production can experience downtime, customers can cancel orders, and other issues can cause deviations from the plan (Umet al., 2010). 
 
